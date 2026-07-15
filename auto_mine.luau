@@ -1015,8 +1015,6 @@ local function mainLoop()
             Stats.phase = "Ampas! ("..(_G.HitsThisPhase or 0).." Hits) Rerolling! 💎"
             _G.ForceReroll = false
             unequipPick()
-            local hrp = getHRP()
-            if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15) end
             local timeout = tick() + 3
             while getMiningUI() and tick() < timeout do task.wait(0.1) end
             task.wait(0.5)
