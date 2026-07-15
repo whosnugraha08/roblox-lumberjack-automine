@@ -987,8 +987,8 @@ local function mainLoop()
             equipPick()
             
             local currentMinigame = "None"
-            if pre and pre.Visible then currentMinigame = "Drag"
-            elseif holder and holder.Visible then currentMinigame = "Timing" end
+            if holder and holder.Visible then currentMinigame = "Timing"
+            elseif pre and pre.Visible then currentMinigame = "Drag" end
 
             if currentMinigame == "Timing" and _lastMinigame ~= "Timing" then
                 _G.PhaseCount = (_G.PhaseCount or 0) + 1
@@ -1018,7 +1018,7 @@ local function mainLoop()
             end
             _lastMinigame = currentMinigame
 
-            if pre and pre.Visible then
+            if currentMinigame == "Drag" then
                 if not handleDrag(ui) then
                     _G.DragStuckCount = (_G.DragStuckCount or 0) + 1
                     if _G.DragStuckCount > 3 then
@@ -1031,7 +1031,7 @@ local function mainLoop()
                 else
                     _G.DragStuckCount = 0
                 end
-            elseif holder and holder.Visible then
+            elseif currentMinigame == "Timing" then
                 local mf = holder:FindFirstChild("MiningFrame")
                 
                 local wPct = 0
