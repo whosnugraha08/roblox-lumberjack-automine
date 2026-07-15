@@ -33,7 +33,7 @@ local Cfg = {
     StoneESP = false,
     ShowTrail = true,
     AutoReroll = false,
-    MaxHitProgress = 15,
+    MinHitsPerPhase = 6,
     MaxDist = 250,
     PreferBuddy = true,
     PreferHotspot = true,
@@ -806,14 +806,14 @@ MT:CreateToggle({
 })
 
 MT:CreateSlider({
-    Name = "Max Progress per Hit %",
-    Range = {1, 50},
+    Name = "Min Hits per Phase (6=Epic, 7=Legend)",
+    Range = {5, 10},
     Increment = 1,
-    Suffix = "%",
-    CurrentValue = Cfg.MaxHitProgress,
+    Suffix = " Hits",
+    CurrentValue = Cfg.MinHitsPerPhase,
     Flag = "MHP",
     Callback = function(Value)
-        Cfg.MaxHitProgress = Value
+        Cfg.MinHitsPerPhase = Value
     end
 })
 
@@ -1002,9 +1002,14 @@ local function mainLoop()
                     local fillAmount = newProgress - initialProgress
                     local fillPercent = (fillAmount / maxProg) * 100
                     
-                    -- If it filled significantly, it's a weak/common ore
-                    if fillAmount > 1 and fillPercent > Cfg.MaxHitProgress then
-                        Stats.phase = "Ampas! ("..string.format("%.1f", fillPercent).."%/hit) Rerolling! 💎"
+                    local estimatedHits = 999
+                    if fillPercent > 0 then
+                        estimatedHits = math.floor(100 / fillPercent + 0.5)
+                    end
+                    
+                    -- If it completes the phase in too few hits, it's a weak/common ore
+                    if fillAmount > 1 and estimatedHits < Cfg.MinHitsPerPhase then
+                        Stats.phase = "Ampas! ("..estimatedHits.." Hits) Rerolling! 💎"
                         unequipPick()
                         local hrp = getHRP()
                         if hrp then 
