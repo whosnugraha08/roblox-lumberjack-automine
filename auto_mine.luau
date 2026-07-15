@@ -42,6 +42,9 @@ local Cfg = {
     MaxDist = 250,
     PreferBuddy = true,
     PreferHotspot = true,
+    ZoneOnly = false,
+    ZoneRadius = 100,
+    ZoneCenter = nil, -- Vector3, set by "Set Home" button
 }
 local Stats = { mined = 0, phase = "Idle" }
 local _skipCurrentStone = false -- flag when "fully occupied"
@@ -220,6 +223,12 @@ local function scoreStone(stone, myPos)
     if dist > Cfg.MaxDist then return -9999 end -- Too far, skip
     if _skipCurrentStone and stone.Name == _lastStoneName then return -9999 end
 
+    -- Zone filter: only mine stones within ZoneRadius of ZoneCenter
+    if Cfg.ZoneOnly and Cfg.ZoneCenter then
+        local distFromHome = (cf.Position - Cfg.ZoneCenter).Magnitude
+        if distFromHome > Cfg.ZoneRadius then return -9999 end
+    end
+
     local score = 1000
     score = score - dist * 1
     if Cfg.PreferBuddy then
@@ -311,6 +320,14 @@ local function updateESP()
         local avail = stone:GetAttribute("AvailableSlot") or 0
         local maxSlot = stone:GetAttribute("MaxSlot") or 10
 
+        -- Zone check
+        local ok2, cf2 = pcall(function() return stone:GetBoundingBox() end)
+        local inZone = true
+        if ok2 and Cfg.ZoneOnly and Cfg.ZoneCenter then
+            local distFromHome = (cf2.Position - Cfg.ZoneCenter).Magnitude
+            inZone = distFromHome <= Cfg.ZoneRadius
+        end
+
         local hl = stone:FindFirstChild("StoneESP_HL")
         if not hl then
             hl = Instance.new("Highlight")
@@ -321,7 +338,12 @@ local function updateESP()
             hl.Parent = stone
         end
 
-        if isHotspot then
+        if not inZone then
+            -- Outside zone: dark red
+            hl.FillColor = Color3.fromRGB(100, 20, 20)
+            hl.OutlineColor = Color3.fromRGB(150, 30, 30)
+            hl.FillTransparency = 0.7
+        elseif isHotspot then
             hl.FillColor = Color3.fromRGB(255, 50, 50)
             hl.OutlineColor = Color3.fromRGB(255, 100, 50)
             hl.FillTransparency = 0.15
@@ -330,9 +352,9 @@ local function updateESP()
             hl.OutlineColor = Color3.fromRGB(120, 120, 120)
             hl.FillTransparency = 0.75
         else
-            hl.FillColor = Color3.fromRGB(255, 200, 50)
-            hl.OutlineColor = Color3.fromRGB(255, 255, 100)
-            hl.FillTransparency = 0.5
+            hl.FillColor = Color3.fromRGB(50, 255, 50)
+            hl.OutlineColor = Color3.fromRGB(100, 255, 100)
+            hl.FillTransparency = 0.4
         end
 
         local bbName = "ESP_BB_" .. stone.Name
@@ -364,14 +386,20 @@ local function updateESP()
         local players = countPlayersNear(cf.Position, 25)
         local lbl = bb:FindFirstChild("Info")
         if lbl then
+            local zoneTag = ""
+            if Cfg.ZoneOnly and Cfg.ZoneCenter then
+                zoneTag = inZone and "\u{2705} " or "\u{274c} "
+            end
             local line1 = ""
-            if isHotspot then line1 = "🔥 HOTSPOT 🔥\n" end
-            local line2 = "⛏" .. avail .. "/" .. maxSlot
-            if players > 0 then line2 = line2 .. " 👥" .. players end
+            if isHotspot then line1 = "\u{1f525} HOTSPOT \u{1f525}\n" end
+            local line2 = zoneTag .. "\u{26cf}" .. avail .. "/" .. maxSlot
+            if players > 0 then line2 = line2 .. " \u{1f465}" .. players end
             line2 = line2 .. " | " .. math.floor(dist) .. "m"
             lbl.Text = line1 .. line2
 
-            if isHotspot then
+            if not inZone then
+                lbl.TextColor3 = Color3.fromRGB(150, 50, 50)
+            elseif isHotspot then
                 lbl.TextColor3 = Color3.fromRGB(255, 100, 50)
             elseif dist <= 14 then
                 lbl.TextColor3 = Color3.fromRGB(100, 255, 100)
@@ -381,6 +409,27 @@ local function updateESP()
                 lbl.TextColor3 = Color3.fromRGB(255, 255, 100)
             end
         end
+    end
+
+    -- Zone circle visualization
+    local zoneCircle = espFolder:FindFirstChild("ZoneCircle")
+    if Cfg.ZoneOnly and Cfg.ZoneCenter then
+        if not zoneCircle then
+            zoneCircle = Instance.new("Part")
+            zoneCircle.Name = "ZoneCircle"
+            zoneCircle.Shape = Enum.PartType.Cylinder
+            zoneCircle.Anchored = true
+            zoneCircle.CanCollide = false
+            zoneCircle.Material = Enum.Material.ForceField
+            zoneCircle.Color = Color3.fromRGB(0, 150, 255)
+            zoneCircle.Transparency = 0.85
+            zoneCircle.Parent = espFolder
+        end
+        local r = Cfg.ZoneRadius
+        zoneCircle.Size = Vector3.new(1, r * 2, r * 2)
+        zoneCircle.CFrame = CFrame.new(Cfg.ZoneCenter) * CFrame.Angles(0, 0, math.rad(90))
+    else
+        if zoneCircle then zoneCircle:Destroy() end
     end
 end
 
@@ -872,6 +921,55 @@ MT:CreateSlider({
     CurrentValue = 250,
     Flag = "MAXD",
     Callback = function(v) Cfg.MaxDist = v end,
+})
+
+MT:CreateDivider()
+MT:CreateSection("Zone Mining 📍")
+
+local ZoneStatusP = MT:CreateParagraph({ Title = "Zone Status", Content = "No home set. Stand where you want and press 'Set Home'." })
+
+MT:CreateButton({
+    Name = "🏠 Set Home Position (Current Pos)",
+    Callback = function()
+        local hrp = getHRP()
+        if hrp then
+            Cfg.ZoneCenter = hrp.Position
+            ZoneStatusP:Set({ Title = "Zone Status", Content = "Home set at: " .. math.floor(hrp.Position.X) .. ", " .. math.floor(hrp.Position.Y) .. ", " .. math.floor(hrp.Position.Z) .. "\nRadius: " .. Cfg.ZoneRadius .. "m" })
+            Rayfield:Notify({ Title = "Home Set! 🏠", Content = "Zone center saved at your current position.", Duration = 3 })
+        end
+    end,
+})
+
+MT:CreateToggle({
+    Name = "Zone Only (Stay in Area)",
+    CurrentValue = false,
+    Flag = "ZO",
+    Callback = function(v)
+        Cfg.ZoneOnly = v
+        if v and not Cfg.ZoneCenter then
+            local hrp = getHRP()
+            if hrp then
+                Cfg.ZoneCenter = hrp.Position
+                ZoneStatusP:Set({ Title = "Zone Status", Content = "Auto-set home at: " .. math.floor(hrp.Position.X) .. ", " .. math.floor(hrp.Position.Y) .. ", " .. math.floor(hrp.Position.Z) .. "\nRadius: " .. Cfg.ZoneRadius .. "m" })
+            end
+            Rayfield:Notify({ Title = "Zone Auto-Set", Content = "Home auto-set to current pos since none was set.", Duration = 3 })
+        end
+    end,
+})
+
+MT:CreateSlider({
+    Name = "Zone Radius",
+    Range = {25, 300},
+    Increment = 25,
+    Suffix = "m",
+    CurrentValue = 100,
+    Flag = "ZR",
+    Callback = function(v)
+        Cfg.ZoneRadius = v
+        if Cfg.ZoneCenter then
+            ZoneStatusP:Set({ Title = "Zone Status", Content = "Home: " .. math.floor(Cfg.ZoneCenter.X) .. ", " .. math.floor(Cfg.ZoneCenter.Y) .. ", " .. math.floor(Cfg.ZoneCenter.Z) .. "\nRadius: " .. v .. "m" })
+        end
+    end,
 })
 
 MT:CreateDivider()
