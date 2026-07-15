@@ -134,6 +134,14 @@ local function equipPick()
     return false
 end
 
+local function unequipPick()
+    local hum = getHum()
+    if hum then
+        hum:UnequipTools()
+        task.wait(0.2)
+    end
+end
+
 local function isBoardEquipped()
     local c = getChar()
     if not c then return false end
@@ -729,7 +737,7 @@ local function startTimingWatcher()
             local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
             local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
             task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
-            task.delay(0.2, function() clickCD = false end)
+            task.delay(0.4, function() clickCD = false end)
         end
     end)
 end
