@@ -695,6 +695,7 @@ local function handleDrag(ui)
 
     local holder = ui:FindFirstChild("MiningHolder")
 
+    _G.HitsThisPhase = 0
     Stats.phase = "Dragging..."
     for attempt = 1, 5 do
         if not pre.Visible or (holder and holder.Visible) then return true end
