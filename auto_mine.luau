@@ -1173,8 +1173,18 @@ local function mainLoop()
                 local isAtValidStone = currentNearest and currentDist <= 14
                 local currentScore = currentNearest and scoreStone(currentNearest, getHRP().Position) or -9999
                 
-                -- Switch if not at any valid stone, OR if the best stone is significantly better (>150 pts difference)
-                if not isAtValidStone or (best ~= currentNearest and bestScore > currentScore + 150) then
+                local isProfitable = false
+                if currentNearest then
+                    local isHotspot = currentNearest:GetAttribute("IsHotspot") or false
+                    local ok, cf = pcall(function() return currentNearest:GetBoundingBox() end)
+                    local playersNear = ok and countPlayersNear(cf.Position, 25) or 0
+                    if (Cfg.PreferHotspot and isHotspot) or (Cfg.PreferBuddy and playersNear >= 2) then
+                        isProfitable = true
+                    end
+                end
+                
+                -- Switch if not at any valid stone, OR if the best stone is significantly better (>150 pts) AND current stone is not highly profitable
+                if not isAtValidStone or (best ~= currentNearest and bestScore > currentScore + 150 and not isProfitable) then
                     if bestDist > 14 then
                         local cf = best:GetBoundingBox()
                         local hs = (best:GetAttribute("IsHotspot") or false) and "🔥" or ""
