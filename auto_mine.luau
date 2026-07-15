@@ -725,6 +725,7 @@ local function startTimingWatcher()
         if math.abs(pointCenter - barCenter) <= tolerance then
             clickCD = true
             Stats.phase = "HIT!"
+            _G.HitsThisPhase = (_G.HitsThisPhase or 0) + 1
             local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
             local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
             task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
@@ -966,68 +967,39 @@ local function mainLoop()
             equipPick()
             
             if pre and pre.Visible then
+                -- Auto Reroll Check: We just returned to the Drag Minigame after a Timing Phase
+                if Cfg.AutoReroll and (_G.PhaseCount or 0) > 0 and not _G.TestedCurrentStone and not _skipCurrentStone then
+                    if (_G.HitsThisPhase or 0) > 0 and (_G.HitsThisPhase or 0) < Cfg.MinHitsPerPhase then
+                        Stats.phase = "Ampas! (".._G.HitsThisPhase.." Hits) Rerolling! 💎"
+                        unequipPick()
+                        local hrp = getHRP()
+                        if hrp then 
+                            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15)
+                        end
+                        local timeout = tick() + 3
+                        while getMiningUI() and tick() < timeout do task.wait(0.1) end
+                        task.wait(0.5)
+                        _G.TestedCurrentStone = false
+                        continue
+                    else
+                        _G.TestedCurrentStone = true
+                    end
+                end
+
                 handleDrag(ui)
+                
+                -- Reset hit count for the upcoming timing phase
+                if not pre.Visible then
+                    _G.PhaseCount = (_G.PhaseCount or 0) + 1
+                    _G.HitsThisPhase = 0
+                end
             elseif holder and holder.Visible then
                 local mf = holder:FindFirstChild("MiningFrame")
-                local prog = mf and mf:FindFirstChild("ProgressContainer")
-                local maxProg = mf and mf.AbsoluteSize.X or 400
                 
                 local wPct = 0
                 local bc = mf and mf:FindFirstChild("BarContainer")
                 local bar = bc and bc:FindFirstChild("Bar")
                 if bar then wPct = bar.Size.X.Scale * 100 end
-                
-                -- Auto Reroll based on Progress fill amount!
-                if Cfg.AutoReroll and prog and not _skipCurrentStone and not _testedCurrentStone then
-                    -- Hit once to test the fill amount
-                    local initialProgress = prog.AbsoluteSize.X
-                    
-                    -- Perform one hit
-                    Stats.phase = "Testing Rarity..."
-                    local point = bc and bc:FindFirstChild("Point")
-                    if point and bar then
-                        local barCenter = bar.AbsolutePosition.X + (bar.AbsoluteSize.X / 2)
-                        local pointCenter = point.AbsolutePosition.X + (point.AbsoluteSize.X / 2)
-                        local tolerance = bar.AbsoluteSize.X * 0.15
-                        if math.abs(pointCenter - barCenter) <= tolerance then
-                            for _, c in pairs(getconnections(holder.HitBtn.MouseButton1Click)) do c:Function() end
-                            clickCD = true
-                            task.delay(Cfg.MineDelay, function() clickCD = false end)
-                        end
-                    end
-                    
-                    -- Wait for progress bar to update
-                    task.wait(0.25)
-                    local newProgress = prog.AbsoluteSize.X
-                    local fillAmount = newProgress - initialProgress
-                    local fillPercent = (fillAmount / maxProg) * 100
-                    
-                    local estimatedHits = 999
-                    if fillPercent > 0 then
-                        estimatedHits = math.floor(100 / fillPercent + 0.5)
-                    end
-                    
-                    -- If it completes the phase in too few hits, it's a weak/common ore
-                    if fillAmount > 1 and estimatedHits < Cfg.MinHitsPerPhase then
-                        Stats.phase = "Ampas! ("..estimatedHits.." Hits) Rerolling! 💎"
-                        unequipPick()
-                        local hrp = getHRP()
-                        if hrp then 
-                            -- Walk away slightly to forcefully close the UI
-                            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15)
-                        end
-                        
-                        -- Wait for UI to vanish
-                        local timeout = tick() + 3
-                        while getMiningUI() and tick() < timeout do task.wait(0.1) end
-                        task.wait(0.5)
-                        _testedCurrentStone = false -- reset for the rerolled stone
-                        continue
-                    end
-                    
-                    -- Passed the test! (It's a rare ore)
-                    _testedCurrentStone = true
-                end
 
                 Stats.phase = "Timing: " .. string.format("%.1f", wPct) .. "%"
             end
@@ -1050,7 +1022,9 @@ local function mainLoop()
                         local hs = (best:GetAttribute("IsHotspot") or false) and "🔥" or ""
                         local pn = countPlayersNear(cf.Position, 25)
                         _lastStoneName = best.Name
-                        _testedCurrentStone = false
+                        _G.PhaseCount = 0
+                        _G.HitsThisPhase = 0
+                        _G.TestedCurrentStone = false
                         Stats.phase = "🛹 → " .. best.Name .. hs .. (pn > 0 and (" 👥" .. pn) or "")
 
                         local hrp = getHRP()
