@@ -1032,6 +1032,22 @@ local function mainLoop()
             end
             task.wait(0.1)
             continue
+        else
+            if _lastMinigame == "Timing" or _lastMinigame == "Drag" then
+                if _lastMinigame == "Timing" and Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
+                    if (_G.HitsThisPhase or 0) > 0 and (_G.HitsThisPhase or 0) < Cfg.MinHitsPerPhase then
+                        Stats.phase = "Ampas! (".._G.HitsThisPhase.." Hits) Skipping Stone! 💎"
+                        _skipCurrentStone = true
+                        _lastStoneName = currentStone and currentStone.Name or ""
+                        task.wait(1)
+                    else
+                        _G.TestedCurrentStone = true
+                    end
+                end
+                _lastMinigame = "None"
+                _G.HitsThisPhase = 0
+                _G.PhaseCount = 0
+            end
         end
 
         -- Evaluate targets between ores
