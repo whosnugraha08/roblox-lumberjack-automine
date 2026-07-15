@@ -923,6 +923,8 @@ local function updateStatus()
     local bestStone, bestDist = getBestStone()
     local t = "Phase: " .. Stats.phase
         .. "\nMined: " .. Stats.mined
+        .. " | Hits: " .. (_G.HitsThisPhase or 0)
+        .. " | PhaseCnt: " .. (_G.PhaseCount or 0)
         .. "\nPick: " .. (isPickEquipped() and "✅" or "❌")
         .. " Board: " .. (isBoardEquipped() and "🛹" or "—")
         .. " Sprint: " .. (_sprinting and "🏃" or "—")
@@ -989,7 +991,7 @@ local function mainLoop()
                         task.wait(0.5)
                         _G.TestedCurrentStone = false
                         continue
-                    else
+                    elseif (_G.HitsThisPhase or 0) >= Cfg.MinHitsPerPhase then
                         _G.TestedCurrentStone = true
                     end
                 end
