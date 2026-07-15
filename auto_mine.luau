@@ -759,12 +759,20 @@ local function startTimingWatcher()
                 task.wait(0.15)
                 
                 if isTesting then
-                    Stats.phase = "Checking ore... (Wait 0.5s)"
-                    task.wait(0.5)
+                    Stats.phase = "Checking ore... (Wait)"
                     
-                    local currentUI = getMiningUI()
-                    local pre = currentUI and currentUI:FindFirstChild("PreMiningHolder")
-                    if pre and pre.Visible then
+                    local isAmpas = false
+                    for i = 1, 15 do
+                        task.wait(0.1)
+                        local currentUI = getMiningUI()
+                        local h = currentUI and currentUI:FindFirstChild("MiningHolder")
+                        if not h or not h.Visible then
+                            isAmpas = true
+                            break
+                        end
+                    end
+                    
+                    if isAmpas then
                         _G.ForceReroll = true
                     else
                         _G.TestedCurrentStone = true
