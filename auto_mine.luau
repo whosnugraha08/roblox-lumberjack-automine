@@ -695,6 +695,7 @@ local function handleDrag(ui)
 
     local holder = ui:FindFirstChild("MiningHolder")
 
+    _G.HitsThisPhase = 0
     Stats.phase = "Dragging..."
     for attempt = 1, 5 do
         if not pre.Visible or (holder and holder.Visible) then return true end
@@ -745,6 +746,28 @@ local function startTimingWatcher()
                 local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
                 local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
                 task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
+                
+                -- Wait for game to register the hit
+                task.wait(0.15)
+                
+                if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
+                    if _G.HitsThisPhase == (Cfg.MinHitsPerPhase - 1) then
+                        _G.TestingStone = true
+                        Stats.phase = "Checking ore... (Wait 1.5s)"
+                        task.wait(1.5)
+                        
+                        local currentUI = getMiningUI()
+                        local h = currentUI and currentUI:FindFirstChild("MiningHolder")
+                        if h and h.Visible then
+                            _G.TestedCurrentStone = true
+                            Stats.phase = "Ore is GOOD! 🚀"
+                            task.wait(0.5)
+                        else
+                            _G.ForceReroll = true
+                        end
+                        _G.TestingStone = false
+                    end
+                end
             end
         else
             _G.WaitingForPointToLeave = false
@@ -967,6 +990,27 @@ local function mainLoop()
         if not Cfg.AutoMine then
             Stats.phase = "Idle"
             task.wait(0.5)
+            continue
+        end
+
+        if _G.TestingStone then
+            task.wait(0.1)
+            continue
+        end
+
+        if _G.ForceReroll then
+            Stats.phase = "Ampas! ("..(_G.HitsThisPhase or 0).." Hits) Rerolling! 💎"
+            _G.ForceReroll = false
+            unequipPick()
+            local hrp = getHRP()
+            if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15) end
+            local timeout = tick() + 3
+            while getMiningUI() and tick() < timeout do task.wait(0.1) end
+            task.wait(0.5)
+            _G.TestedCurrentStone = false
+            _lastMinigame = "None"
+            _G.PhaseCount = 0
+            _G.HitsThisPhase = 0
             continue
         end
 
