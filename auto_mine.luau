@@ -807,12 +807,12 @@ MT:CreateToggle({
 })
 
 MT:CreateSlider({
-    Name = "Min Hits per Phase (6=Epic, 7=Legend)",
+    Name = "Min Hits per Phase (Set to 6)",
     Range = {5, 10},
     Increment = 1,
     Suffix = " Hits",
-    CurrentValue = Cfg.MinHitsPerPhase,
-    Flag = "MHP",
+    CurrentValue = 6,
+    Flag = "MHPP",
     Callback = function(Value)
         Cfg.MinHitsPerPhase = Value
     end
@@ -986,10 +986,21 @@ local function mainLoop()
                     end
                 end
 
-                handleDrag(ui)
+                if not handleDrag(ui) then
+                    _G.DragStuckCount = (_G.DragStuckCount or 0) + 1
+                    if _G.DragStuckCount > 3 then
+                        Stats.phase = "UI Stuck! Force Resetting..."
+                        unequipPick()
+                        ui:Destroy()
+                        _G.DragStuckCount = 0
+                        task.wait(1)
+                    end
+                else
+                    _G.DragStuckCount = 0
+                end
                 
                 -- Reset hit count for the upcoming timing phase
-                if not pre.Visible then
+                if pre and not pre.Visible then
                     _G.PhaseCount = (_G.PhaseCount or 0) + 1
                     _G.HitsThisPhase = 0
                 end
