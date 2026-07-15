@@ -743,6 +743,14 @@ local function startTimingWatcher()
                 _G.HitsThisPhase = (_G.HitsThisPhase or 0) + 1
                 _G.WaitingForPointToLeave = true
                 
+                local isTesting = false
+                if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
+                    if _G.HitsThisPhase == (Cfg.MinHitsPerPhase - 1) then
+                        _G.TestingStone = true
+                        isTesting = true
+                    end
+                end
+                
                 local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
                 local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
                 task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
@@ -750,23 +758,20 @@ local function startTimingWatcher()
                 -- Wait for game to register the hit
                 task.wait(0.15)
                 
-                if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-                    if _G.HitsThisPhase == (Cfg.MinHitsPerPhase - 1) then
-                        _G.TestingStone = true
-                        Stats.phase = "Checking ore... (Wait 0.5s)"
+                if isTesting then
+                    Stats.phase = "Checking ore... (Wait 0.5s)"
+                    task.wait(0.5)
+                    
+                    local currentUI = getMiningUI()
+                    local pre = currentUI and currentUI:FindFirstChild("PreMiningHolder")
+                    if pre and pre.Visible then
+                        _G.ForceReroll = true
+                    else
+                        _G.TestedCurrentStone = true
+                        Stats.phase = "Ore is GOOD! 🚀"
                         task.wait(0.5)
-                        
-                        local currentUI = getMiningUI()
-                        local pre = currentUI and currentUI:FindFirstChild("PreMiningHolder")
-                        if pre and pre.Visible then
-                            _G.ForceReroll = true
-                        else
-                            _G.TestedCurrentStone = true
-                            Stats.phase = "Ore is GOOD! 🚀"
-                            task.wait(0.5)
-                        end
-                        _G.TestingStone = false
                     end
+                    _G.TestingStone = false
                 end
             end
         else
