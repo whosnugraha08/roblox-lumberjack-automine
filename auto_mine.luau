@@ -949,6 +949,7 @@ end
 -- ═══════════════════════════════════════════════
 
 local _testedCurrentStone = false
+local _lastMinigame = "None"
 
 local function mainLoop()
     startTimingWatcher()
@@ -979,26 +980,34 @@ local function mainLoop()
             
             equipPick()
             
-            if pre and pre.Visible then
-                -- Auto Reroll Check: We just returned to the Drag Minigame after a Timing Phase
-                if Cfg.AutoReroll and (_G.PhaseCount or 0) > 0 and not _G.TestedCurrentStone and not _skipCurrentStone then
+            local currentMinigame = "None"
+            if pre and pre.Visible then currentMinigame = "Drag"
+            elseif holder and holder.Visible then currentMinigame = "Timing" end
+
+            if currentMinigame == "Timing" and _lastMinigame == "Drag" then
+                _G.PhaseCount = (_G.PhaseCount or 0) + 1
+                _G.HitsThisPhase = 0
+            elseif currentMinigame == "Drag" and _lastMinigame == "Timing" then
+                if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
                     if (_G.HitsThisPhase or 0) > 0 and (_G.HitsThisPhase or 0) < Cfg.MinHitsPerPhase then
                         Stats.phase = "Ampas! (".._G.HitsThisPhase.." Hits) Rerolling! 💎"
                         unequipPick()
                         local hrp = getHRP()
-                        if hrp then 
-                            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15)
-                        end
+                        if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15) end
                         local timeout = tick() + 3
                         while getMiningUI() and tick() < timeout do task.wait(0.1) end
                         task.wait(0.5)
                         _G.TestedCurrentStone = false
+                        _lastMinigame = "None"
                         continue
                     elseif (_G.HitsThisPhase or 0) >= Cfg.MinHitsPerPhase then
                         _G.TestedCurrentStone = true
                     end
                 end
+            end
+            _lastMinigame = currentMinigame
 
+            if pre and pre.Visible then
                 if not handleDrag(ui) then
                     _G.DragStuckCount = (_G.DragStuckCount or 0) + 1
                     if _G.DragStuckCount > 3 then
@@ -1010,12 +1019,6 @@ local function mainLoop()
                     end
                 else
                     _G.DragStuckCount = 0
-                end
-                
-                -- Reset hit count for the upcoming timing phase
-                if pre and not pre.Visible then
-                    _G.PhaseCount = (_G.PhaseCount or 0) + 1
-                    _G.HitsThisPhase = 0
                 end
             elseif holder and holder.Visible then
                 local mf = holder:FindFirstChild("MiningFrame")
@@ -1049,6 +1052,7 @@ local function mainLoop()
                         _G.PhaseCount = 0
                         _G.HitsThisPhase = 0
                         _G.TestedCurrentStone = false
+                        _lastMinigame = "None"
                         Stats.phase = "🛹 → " .. best.Name .. hs .. (pn > 0 and (" 👥" .. pn) or "")
 
                         local hrp = getHRP()
