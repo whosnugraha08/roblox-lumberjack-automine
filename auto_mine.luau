@@ -714,14 +714,10 @@ end
 -- TIMING BAR
 -- ═══════════════════════════════════════════════
 
-local clickCD = false
-
-local _lastPointX = 0
-
 local function startTimingWatcher()
     if _G.TimingConn then _G.TimingConn:Disconnect() end
     _G.TimingConn = RunService.RenderStepped:Connect(function()
-        if not _G.AutoFarmEnabled_v3 or not Cfg.AutoMine or clickCD then return end
+        if not _G.AutoFarmEnabled_v3 or not Cfg.AutoMine then return end
         local ui = getMiningUI()
         if not ui then return end
         local holder = ui:FindFirstChild("MiningHolder")
@@ -740,15 +736,18 @@ local function startTimingWatcher()
         -- Tolerance is 15% of the yellow bar's width from the exact center
         local tolerance = bar.AbsoluteSize.X * 0.15
         
-        if math.abs(pointCenter - barCenter) <= tolerance and pointCenter ~= (_lastPointX or 0) then
-            clickCD = true
-            Stats.phase = "HIT!"
-            _G.HitsThisPhase = (_G.HitsThisPhase or 0) + 1
-            _lastPointX = pointCenter
-            local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
-            local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
-            task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
-            task.delay(0.2, function() clickCD = false end)
+        if math.abs(pointCenter - barCenter) <= tolerance then
+            if not _G.WaitingForPointToLeave then
+                Stats.phase = "HIT!"
+                _G.HitsThisPhase = (_G.HitsThisPhase or 0) + 1
+                _G.WaitingForPointToLeave = true
+                
+                local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
+                local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
+                task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
+            end
+        else
+            _G.WaitingForPointToLeave = false
         end
     end)
 end
@@ -995,9 +994,11 @@ local function mainLoop()
             if currentMinigame == "Timing" and _lastMinigame ~= "Timing" then
                 _G.PhaseCount = (_G.PhaseCount or 0) + 1
                 _G.HitsThisPhase = 0
+                _G.WaitingForPointToLeave = false
             elseif currentMinigame == "Timing" and (_G.PhaseCount or 0) == 0 then
                 _G.PhaseCount = 1
                 _G.HitsThisPhase = 0
+                _G.WaitingForPointToLeave = false
             elseif currentMinigame == "Drag" and _lastMinigame == "Timing" then
                 if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
                     if (_G.HitsThisPhase or 0) > 0 and (_G.HitsThisPhase or 0) < Cfg.MinHitsPerPhase then
@@ -1017,6 +1018,7 @@ local function mainLoop()
                         _G.TestedCurrentStone = true
                     end
                 end
+                _G.HitsThisPhase = 0
             end
             _lastMinigame = currentMinigame
 
