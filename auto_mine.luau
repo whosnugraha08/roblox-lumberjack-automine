@@ -693,9 +693,11 @@ local function handleDrag(ui)
     local det = dragBtn:FindFirstChild("UIDragDetector")
     if not det then return false end
 
+    local holder = ui:FindFirstChild("MiningHolder")
+
     Stats.phase = "Dragging..."
     for attempt = 1, 5 do
-        if not pre.Visible then return true end
+        if not pre.Visible or (holder and holder.Visible) then return true end
         if not _G.AutoFarmEnabled_v3 then return false end
         pcall(function()
             dragBtn.Position = target.Position
