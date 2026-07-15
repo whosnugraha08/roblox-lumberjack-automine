@@ -753,17 +753,17 @@ local function startTimingWatcher()
                 if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
                     if _G.HitsThisPhase == (Cfg.MinHitsPerPhase - 1) then
                         _G.TestingStone = true
-                        Stats.phase = "Checking ore... (Wait 1.5s)"
-                        task.wait(1.5)
+                        Stats.phase = "Checking ore... (Wait 0.5s)"
+                        task.wait(0.5)
                         
                         local currentUI = getMiningUI()
-                        local h = currentUI and currentUI:FindFirstChild("MiningHolder")
-                        if h and h.Visible then
+                        local pre = currentUI and currentUI:FindFirstChild("PreMiningHolder")
+                        if pre and pre.Visible then
+                            _G.ForceReroll = true
+                        else
                             _G.TestedCurrentStone = true
                             Stats.phase = "Ore is GOOD! 🚀"
                             task.wait(0.5)
-                        else
-                            _G.ForceReroll = true
                         end
                         _G.TestingStone = false
                     end
