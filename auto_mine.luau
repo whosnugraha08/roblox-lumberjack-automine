@@ -708,6 +708,8 @@ end
 
 local clickCD = false
 
+local _lastPointX = 0
+
 local function startTimingWatcher()
     if _G.TimingConn then _G.TimingConn:Disconnect() end
     _G.TimingConn = RunService.RenderStepped:Connect(function()
@@ -730,14 +732,15 @@ local function startTimingWatcher()
         -- Tolerance is 15% of the yellow bar's width from the exact center
         local tolerance = bar.AbsoluteSize.X * 0.15
         
-        if math.abs(pointCenter - barCenter) <= tolerance then
+        if math.abs(pointCenter - barCenter) <= tolerance and pointCenter ~= (_lastPointX or 0) then
             clickCD = true
             Stats.phase = "HIT!"
             _G.HitsThisPhase = (_G.HitsThisPhase or 0) + 1
+            _lastPointX = pointCenter
             local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
             local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
             task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
-            task.delay(0.4, function() clickCD = false end)
+            task.delay(0.2, function() clickCD = false end)
         end
     end)
 end
