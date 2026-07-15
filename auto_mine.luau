@@ -984,7 +984,7 @@ local function mainLoop()
             if pre and pre.Visible then currentMinigame = "Drag"
             elseif holder and holder.Visible then currentMinigame = "Timing" end
 
-            if currentMinigame == "Timing" and _lastMinigame == "Drag" then
+            if currentMinigame == "Timing" and _lastMinigame ~= "Timing" then
                 _G.PhaseCount = (_G.PhaseCount or 0) + 1
                 _G.HitsThisPhase = 0
             elseif currentMinigame == "Drag" and _lastMinigame == "Timing" then
@@ -999,6 +999,8 @@ local function mainLoop()
                         task.wait(0.5)
                         _G.TestedCurrentStone = false
                         _lastMinigame = "None"
+                        _G.PhaseCount = 0
+                        _G.HitsThisPhase = 0
                         continue
                     elseif (_G.HitsThisPhase or 0) >= Cfg.MinHitsPerPhase then
                         _G.TestedCurrentStone = true
@@ -1033,20 +1035,11 @@ local function mainLoop()
             task.wait(0.1)
             continue
         else
-            if _lastMinigame == "Timing" or _lastMinigame == "Drag" then
-                if _lastMinigame == "Timing" and Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-                    if (_G.HitsThisPhase or 0) > 0 and (_G.HitsThisPhase or 0) < Cfg.MinHitsPerPhase then
-                        Stats.phase = "Ampas! (".._G.HitsThisPhase.." Hits) Skipping Stone! 💎"
-                        _skipCurrentStone = true
-                        _lastStoneName = currentStone and currentStone.Name or ""
-                        task.wait(1)
-                    else
-                        _G.TestedCurrentStone = true
-                    end
-                end
+            if _lastMinigame ~= "None" then
                 _lastMinigame = "None"
                 _G.HitsThisPhase = 0
                 _G.PhaseCount = 0
+                _G.TestedCurrentStone = false
             end
         end
 
