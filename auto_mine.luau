@@ -695,7 +695,27 @@ local function handleDrag(ui)
 
     local holder = ui:FindFirstChild("MiningHolder")
 
+    -- Save hit count from last Timing phase before resetting
+    local hitsFromLastPhase = _G.HitsThisPhase or 0
     _G.HitsThisPhase = 0
+
+    -- Reroll check: only if we actually had hits (came from Timing)
+    if hitsFromLastPhase > 0 and Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
+        if hitsFromLastPhase < Cfg.MinHitsPerPhase then
+            Stats.phase = "Ampas! (" .. hitsFromLastPhase .. " Hits) Rerolling! 💎"
+            unequipPick()
+            local timeout = tick() + 3
+            while getMiningUI() and tick() < timeout do task.wait(0.1) end
+            task.wait(0.5)
+            _G.TestedCurrentStone = false
+            _G.PhaseCount = 0
+            return "reroll"
+        elseif hitsFromLastPhase >= Cfg.MinHitsPerPhase then
+            Stats.phase = "Ore is GOOD! 🚀 (" .. hitsFromLastPhase .. " Hits)"
+            _G.TestedCurrentStone = true
+        end
+    end
+
     Stats.phase = "Dragging..."
     for attempt = 1, 5 do
         if not pre.Visible or (holder and holder.Visible) then return true end
@@ -1003,30 +1023,18 @@ local function mainLoop()
                 _G.HitsThisPhase = 0
                 _G.WaitingForPointToLeave = false
             elseif currentMinigame == "Drag" and _lastMinigame == "Timing" then
-                -- Reroll check: if hits < MinHitsPerPhase, this ore is bad
-                if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-                    if (_G.HitsThisPhase or 0) > 0 and (_G.HitsThisPhase or 0) < Cfg.MinHitsPerPhase then
-                        Stats.phase = "Ampas! (".._G.HitsThisPhase.." Hits) Rerolling! 💎"
-                        unequipPick()
-                        local timeout = tick() + 3
-                        while getMiningUI() and tick() < timeout do task.wait(0.1) end
-                        task.wait(0.5)
-                        _G.TestedCurrentStone = false
-                        _lastMinigame = "None"
-                        _G.PhaseCount = 0
-                        _G.HitsThisPhase = 0
-                        continue
-                    elseif (_G.HitsThisPhase or 0) >= Cfg.MinHitsPerPhase then
-                        Stats.phase = "Ore is GOOD! 🚀 (" .. (_G.HitsThisPhase or 0) .. " Hits)"
-                        _G.TestedCurrentStone = true
-                    end
-                end
                 _G.HitsThisPhase = 0
             end
             _lastMinigame = currentMinigame
 
             if currentMinigame == "Drag" then
-                if not handleDrag(ui) then
+                local dragResult = handleDrag(ui)
+                if dragResult == "reroll" then
+                    _lastMinigame = "None"
+                    _G.PhaseCount = 0
+                    _G.HitsThisPhase = 0
+                    continue
+                elseif not dragResult then
                     _G.DragStuckCount = (_G.DragStuckCount or 0) + 1
                     if _G.DragStuckCount > 3 then
                         Stats.phase = "UI Stuck! Force Resetting..."
