@@ -33,7 +33,7 @@ local Cfg = {
     StoneESP = false,
     ShowTrail = true,
     AutoReroll = false,
-    MaxYellowWidth = 20,
+    MaxHitProgress = 15,
     MaxDist = 250,
     PreferBuddy = true,
     PreferHotspot = true,
@@ -806,13 +806,15 @@ MT:CreateToggle({
 })
 
 MT:CreateSlider({
-    Name = "Max Yellow Bar % (Lower = Rarer)",
-    Range = {5, 50},
+    Name = "Max Progress per Hit %",
+    Range = {1, 50},
     Increment = 1,
     Suffix = "%",
-    CurrentValue = 20,
-    Flag = "MYW",
-    Callback = function(v) Cfg.MaxYellowWidth = v end,
+    CurrentValue = Cfg.MaxHitProgress,
+    Flag = "MHP",
+    Callback = function(Value)
+        Cfg.MaxHitProgress = Value
+    end
 })
 
 MT:CreateToggle({
@@ -932,6 +934,8 @@ end
 -- MAIN LOOP
 -- ═══════════════════════════════════════════════
 
+local _testedCurrentStone = false
+
 local function mainLoop()
     startTimingWatcher()
 
@@ -959,34 +963,67 @@ local function mainLoop()
             local pre = ui:FindFirstChild("PreMiningHolder")
             local holder = ui:FindFirstChild("MiningHolder")
             
-            -- Reroll only if drag phase is completely done
-            if holder and holder.Visible and Cfg.AutoReroll and (not pre or not pre.Visible) then
-                local mf = holder:FindFirstChild("MiningFrame")
-                local bc = mf and mf:FindFirstChild("BarContainer")
-                local bar = bc and bc:FindFirstChild("Bar")
-                if bar then
-                    local widthPercent = bar.Size.X.Scale * 100
-                    if widthPercent > Cfg.MaxYellowWidth then
-                        Stats.phase = "Bad Ore ("..string.format("%.1f", widthPercent).."%) Rerolling! 💎"
-                        unequipPick()
-                        local hum = getHum()
-                        if hum then hum.Jump = true end
-                        task.wait(0.5)
-                        continue
-                    end
-                end
-            end
-
             equipPick()
-            local pre = ui:FindFirstChild("PreMiningHolder")
+            
             if pre and pre.Visible then
                 handleDrag(ui)
-            else
+            elseif holder and holder.Visible then
+                local mf = holder:FindFirstChild("MiningFrame")
+                local prog = mf and mf:FindFirstChild("ProgressContainer")
+                local maxProg = mf and mf.AbsoluteSize.X or 400
+                
                 local wPct = 0
-                local mf = holder and holder:FindFirstChild("MiningFrame")
                 local bc = mf and mf:FindFirstChild("BarContainer")
                 local bar = bc and bc:FindFirstChild("Bar")
                 if bar then wPct = bar.Size.X.Scale * 100 end
+                
+                -- Auto Reroll based on Progress fill amount!
+                if Cfg.AutoReroll and prog and not _skipCurrentStone and not _testedCurrentStone then
+                    -- Hit once to test the fill amount
+                    local initialProgress = prog.AbsoluteSize.X
+                    
+                    -- Perform one hit
+                    Stats.phase = "Testing Rarity..."
+                    local point = bc and bc:FindFirstChild("Point")
+                    if point and bar then
+                        local barCenter = bar.AbsolutePosition.X + (bar.AbsoluteSize.X / 2)
+                        local pointCenter = point.AbsolutePosition.X + (point.AbsoluteSize.X / 2)
+                        local tolerance = bar.AbsoluteSize.X * 0.15
+                        if math.abs(pointCenter - barCenter) <= tolerance then
+                            for _, c in pairs(getconnections(holder.HitBtn.MouseButton1Click)) do c:Function() end
+                            clickCD = true
+                            task.delay(Cfg.MineDelay, function() clickCD = false end)
+                        end
+                    end
+                    
+                    -- Wait for progress bar to update
+                    task.wait(0.25)
+                    local newProgress = prog.AbsoluteSize.X
+                    local fillAmount = newProgress - initialProgress
+                    local fillPercent = (fillAmount / maxProg) * 100
+                    
+                    -- If it filled significantly, it's a weak/common ore
+                    if fillAmount > 1 and fillPercent > Cfg.MaxHitProgress then
+                        Stats.phase = "Ampas! ("..string.format("%.1f", fillPercent).."%/hit) Rerolling! 💎"
+                        unequipPick()
+                        local hrp = getHRP()
+                        if hrp then 
+                            -- Walk away slightly to forcefully close the UI
+                            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15)
+                        end
+                        
+                        -- Wait for UI to vanish
+                        local timeout = tick() + 3
+                        while getMiningUI() and tick() < timeout do task.wait(0.1) end
+                        task.wait(0.5)
+                        _testedCurrentStone = false -- reset for the rerolled stone
+                        continue
+                    end
+                    
+                    -- Passed the test! (It's a rare ore)
+                    _testedCurrentStone = true
+                end
+
                 Stats.phase = "Timing: " .. string.format("%.1f", wPct) .. "%"
             end
             task.wait(0.1)
@@ -1008,6 +1045,7 @@ local function mainLoop()
                         local hs = (best:GetAttribute("IsHotspot") or false) and "🔥" or ""
                         local pn = countPlayersNear(cf.Position, 25)
                         _lastStoneName = best.Name
+                        _testedCurrentStone = false
                         Stats.phase = "🛹 → " .. best.Name .. hs .. (pn > 0 and (" 👥" .. pn) or "")
 
                         local hrp = getHRP()
