@@ -695,7 +695,6 @@ local function handleDrag(ui)
 
     local holder = ui:FindFirstChild("MiningHolder")
 
-    _G.HitsThisPhase = 0
     Stats.phase = "Dragging..."
     for attempt = 1, 5 do
         if not pre.Visible or (holder and holder.Visible) then return true end
@@ -739,48 +738,13 @@ local function startTimingWatcher()
         
         if math.abs(pointCenter - barCenter) <= tolerance then
             if not _G.WaitingForPointToLeave then
-                Stats.phase = "HIT!"
                 _G.HitsThisPhase = (_G.HitsThisPhase or 0) + 1
+                Stats.phase = "HIT! (#" .. _G.HitsThisPhase .. ")"
                 _G.WaitingForPointToLeave = true
-                
-                local isTesting = false
-                if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-                    if _G.HitsThisPhase == (Cfg.MinHitsPerPhase - 1) then
-                        _G.TestingStone = true
-                        isTesting = true
-                    end
-                end
                 
                 local cx = bc.AbsolutePosition.X + bc.AbsoluteSize.X / 2
                 local cy = bc.AbsolutePosition.Y + bc.AbsoluteSize.Y / 2
                 task.spawn(function() pcall(function() vimClick(cx, cy) end) end)
-                
-                -- Wait for game to register the hit
-                task.wait(0.15)
-                
-                if isTesting then
-                    Stats.phase = "Checking ore... (Wait)"
-                    
-                    local isAmpas = false
-                    for i = 1, 15 do
-                        task.wait(0.1)
-                        local currentUI = getMiningUI()
-                        local h = currentUI and currentUI:FindFirstChild("MiningHolder")
-                        if not h or not h.Visible then
-                            isAmpas = true
-                            break
-                        end
-                    end
-                    
-                    if isAmpas then
-                        _G.ForceReroll = true
-                    else
-                        _G.TestedCurrentStone = true
-                        Stats.phase = "Ore is GOOD! 🚀"
-                        task.wait(0.5)
-                    end
-                    _G.TestingStone = false
-                end
             end
         else
             _G.WaitingForPointToLeave = false
@@ -1006,24 +970,7 @@ local function mainLoop()
             continue
         end
 
-        if _G.TestingStone then
-            task.wait(0.1)
-            continue
-        end
 
-        if _G.ForceReroll then
-            Stats.phase = "Ampas! ("..(_G.HitsThisPhase or 0).." Hits) Rerolling! 💎"
-            _G.ForceReroll = false
-            unequipPick()
-            local timeout = tick() + 3
-            while getMiningUI() and tick() < timeout do task.wait(0.1) end
-            task.wait(0.5)
-            _G.TestedCurrentStone = false
-            _lastMinigame = "None"
-            _G.PhaseCount = 0
-            _G.HitsThisPhase = 0
-            continue
-        end
 
         -- Check "fully occupied" → skip
         if _skipCurrentStone then
@@ -1055,12 +1002,11 @@ local function mainLoop()
                 _G.HitsThisPhase = 0
                 _G.WaitingForPointToLeave = false
             elseif currentMinigame == "Drag" and _lastMinigame == "Timing" then
+                -- Reroll check: if hits < MinHitsPerPhase, this ore is bad
                 if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
                     if (_G.HitsThisPhase or 0) > 0 and (_G.HitsThisPhase or 0) < Cfg.MinHitsPerPhase then
                         Stats.phase = "Ampas! (".._G.HitsThisPhase.." Hits) Rerolling! 💎"
                         unequipPick()
-                        local hrp = getHRP()
-                        if hrp then hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, 15) end
                         local timeout = tick() + 3
                         while getMiningUI() and tick() < timeout do task.wait(0.1) end
                         task.wait(0.5)
@@ -1070,6 +1016,7 @@ local function mainLoop()
                         _G.HitsThisPhase = 0
                         continue
                     elseif (_G.HitsThisPhase or 0) >= Cfg.MinHitsPerPhase then
+                        Stats.phase = "Ore is GOOD! 🚀 (" .. (_G.HitsThisPhase or 0) .. " Hits)"
                         _G.TestedCurrentStone = true
                     end
                 end
