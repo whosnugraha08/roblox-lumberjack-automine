@@ -12,9 +12,14 @@
     Toggle UI: K | Stop: _G.AutoFarmEnabled_v3 = false
 ]]
 
-_G.AutoFarmEnabled_v3 = false
-task.wait(0.5)
+if _G.AutoFarmEnabled_v3 then
+    _G.AutoFarmEnabled_v3 = false
+    task.wait(0.2)
+end
+
 _G.AutoFarmEnabled_v3 = true
+_G.AutoFarmRunID = tick()
+local myRunID = _G.AutoFarmRunID
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -174,7 +179,7 @@ end
 
 -- Watch for the notification and set skip flag
 task.spawn(function()
-    while _G.AutoFarmEnabled_v3 do
+    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
         if isFullyOccupiedMsg() then
             _skipCurrentStone = true
         end
@@ -511,7 +516,7 @@ local function humanizedWalkTo(targetStone)
     -- Background random jumper: fires every 1-3 seconds
     local jumping = true
     task.spawn(function()
-        while jumping and _G.AutoFarmEnabled_v3 and Cfg.FullAuto do
+        while jumping and _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID and Cfg.FullAuto do
             task.wait(math.random(10, 30) / 10) -- 1-3 sec random
             if jumping then
                 doJump()
@@ -521,7 +526,7 @@ local function humanizedWalkTo(targetStone)
 
     -- Background board checker
     task.spawn(function()
-        while jumping and _G.AutoFarmEnabled_v3 and Cfg.FullAuto do
+        while jumping and _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID and Cfg.FullAuto do
             task.wait(1)
             if jumping and totalDist > 25 and not isBoardEquipped() then
                 equipBoard()
@@ -547,7 +552,7 @@ local function humanizedWalkTo(targetStone)
         local stuckTime = 0
 
         for i = 2, #waypoints do
-            if not _G.AutoFarmEnabled_v3 or not Cfg.FullAuto or _skipCurrentStone then break end
+            if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID or not Cfg.FullAuto or _skipCurrentStone then break end
             
             -- Check if stone got depleted while walking
             local currentAvail = targetStone:GetAttribute("AvailableSlot") or 0
@@ -573,7 +578,7 @@ local function humanizedWalkTo(targetStone)
 
             -- Continuous wait, much shorter and faster checks
             local elapsed = 0
-            while elapsed < 3 and _G.AutoFarmEnabled_v3 do
+            while elapsed < 3 and _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
                 if (hrp.Position - targetPos).Magnitude <= 14 then 
                     -- Arrived (or user moved manually)
                     jumping = false; clearTrail(); stopSprint(); return true 
@@ -619,7 +624,7 @@ local function humanizedWalkTo(targetStone)
 
         local numWP = math.clamp(math.floor(totalDist / 35), 2, 8)
         for i = 1, numWP do
-            if not _G.AutoFarmEnabled_v3 or not Cfg.FullAuto or _skipCurrentStone then break end
+            if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID or not Cfg.FullAuto or _skipCurrentStone then break end
 
             -- Check if stone got depleted while walking
             local currentAvail = targetStone:GetAttribute("AvailableSlot") or 0
@@ -644,7 +649,7 @@ local function humanizedWalkTo(targetStone)
 
             -- Faster check, no stopping
             for _ = 1, 10 do
-                if not _G.AutoFarmEnabled_v3 then break end
+                if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID then break end
                 if (hrp.Position - targetPos).Magnitude <= 14 then 
                     jumping = false; clearTrail(); stopSprint(); return true 
                 end
@@ -659,8 +664,9 @@ local function humanizedWalkTo(targetStone)
 
         -- Final approach
         hum:MoveTo(Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
-        for _ = 1, 40 do
-            if not _G.AutoFarmEnabled_v3 then break end
+        while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
+            task.wait(0.01)
+            if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID then break end
             if (hrp.Position - targetPos).Magnitude < 14 then break end
             task.wait(0.15)
         end
@@ -954,7 +960,7 @@ local _lastMinigame = "None"
 local function mainLoop()
     startTimingWatcher()
 
-    while _G.AutoFarmEnabled_v3 do
+    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
         updateStatus()
 
         if not Cfg.AutoMine then
@@ -986,6 +992,9 @@ local function mainLoop()
 
             if currentMinigame == "Timing" and _lastMinigame ~= "Timing" then
                 _G.PhaseCount = (_G.PhaseCount or 0) + 1
+                _G.HitsThisPhase = 0
+            elseif currentMinigame == "Timing" and (_G.PhaseCount or 0) == 0 then
+                _G.PhaseCount = 1
                 _G.HitsThisPhase = 0
             elseif currentMinigame == "Drag" and _lastMinigame == "Timing" then
                 if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
