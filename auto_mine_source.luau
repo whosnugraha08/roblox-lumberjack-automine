@@ -51,6 +51,13 @@ local Cfg = {
     ZoneRadius = 100,
     ZoneCenter = nil, -- Vector3, set by "Set Home" button
     
+    -- AFK System
+    StrictAFKMode = false,
+    StrictAFKMinBuddy = 2,
+    HideFromFriends = false,
+    AFKSpotCenter = nil,
+    AFKSpotRadius = 15,
+    
     -- Gacha Settings
     AutoGacha = false,
     GachaBox = "Summer2026",
@@ -59,6 +66,41 @@ local Cfg = {
     GachaAutoClick = true,
     GachaDelay = 1.0,
 }
+
+-- ═══ FRIEND DETECTION SYSTEM ═══
+local _friendsInServer = {}
+local _friendCheckRunning = true
+
+local function checkFriend(player)
+    if not _friendCheckRunning then return end
+    if player == LP then return end
+    pcall(function()
+        if LP:IsFriendsWith(player.UserId) then
+            _friendsInServer[player.UserId] = true
+        end
+    end)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    task.spawn(checkFriend, p)
+end
+
+local friendAddedConn = Players.PlayerAdded:Connect(function(player)
+    task.spawn(checkFriend, player)
+end)
+
+local friendRemovingConn = Players.PlayerRemoving:Connect(function(player)
+    _friendsInServer[player.UserId] = nil
+end)
+
+task.spawn(function()
+    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
+        task.wait(2)
+    end
+    _friendCheckRunning = false
+    friendAddedConn:Disconnect()
+    friendRemovingConn:Disconnect()
+end)
 local Stats = { mined = 0, phase = "Idle" }
 local _skipCurrentStone = false -- flag when "fully occupied"
 
@@ -324,6 +366,11 @@ local function scoreStone(stone, myPos)
             -- Base 600 for activating buddy + 300 per person
             score = score + 600 + (playersNear * 300) 
         end
+    end
+    
+    if Cfg.StrictAFKMode then
+        if not isHotspot then return -9999 end
+        if playersNear < Cfg.StrictAFKMinBuddy then return -9999 end
     end
     if Cfg.PreferHotspot and isHotspot then 
         score = score + 5000 -- Massive bonus so Hotspot ALWAYS beats normal stones, even if normal stones have 10+ people
@@ -636,13 +683,12 @@ local function computePath(startPos, endPos)
     return nil
 end
 
-local function humanizedWalkTo(targetStone)
-    local hum = getHum()
+local function humanizedWalkToPos(targetPos, targetStone)
     local hrp = getHRP()
-    if not hum or not hrp or not targetStone then return false end
+    local hum = getHum()
+    if not hrp or not hum then return false end
 
     local startPos = hrp.Position
-    local targetPos = targetStone:GetBoundingBox().Position
     local totalDist = (targetPos - startPos).Magnitude
 
     -- Board for travel
@@ -695,7 +741,7 @@ local function humanizedWalkTo(targetStone)
             if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID or not Cfg.FullAuto or _skipCurrentStone then break end
             
             -- Check if stone got depleted while walking
-            local currentAvail = targetStone:GetAttribute("AvailableSlot") or 0
+            local currentAvail = targetStone and targetStone:GetAttribute("AvailableSlot") or 1
             if currentAvail <= 0 then 
                 Stats.phase = "Stone depleted mid-walk! Aborting..."
                 break 
@@ -723,7 +769,7 @@ local function humanizedWalkTo(targetStone)
                     -- Arrived (or user moved manually)
                     jumping = false; clearTrail(); stopSprint(); return true 
                 end
-                if (targetStone:GetAttribute("AvailableSlot") or 0) <= 0 then break end
+                if targetStone and (targetStone:GetAttribute("AvailableSlot") or 0) <= 0 then break end
                 
                 local d = hrp.Position - goal
                 if Vector3.new(d.X, 0, d.Z).Magnitude < 6 then break end
@@ -744,7 +790,7 @@ local function humanizedWalkTo(targetStone)
                                 -- Restart with new path
                                 jumping = false
                                 stopSprint()
-                                return humanizedWalkTo(targetStone)
+                                return humanizedWalkToPos(targetPos, targetStone)
                             end
                             stuckTime = 0
                         end
@@ -767,7 +813,7 @@ local function humanizedWalkTo(targetStone)
             if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID or not Cfg.FullAuto or _skipCurrentStone then break end
 
             -- Check if stone got depleted while walking
-            local currentAvail = targetStone:GetAttribute("AvailableSlot") or 0
+            local currentAvail = targetStone and targetStone:GetAttribute("AvailableSlot") or 1
             if currentAvail <= 0 then 
                 Stats.phase = "Stone depleted mid-walk! Aborting..."
                 break 
@@ -793,7 +839,7 @@ local function humanizedWalkTo(targetStone)
                 if (hrp.Position - targetPos).Magnitude <= 14 then 
                     jumping = false; clearTrail(); stopSprint(); return true 
                 end
-                if (targetStone:GetAttribute("AvailableSlot") or 0) <= 0 then break end
+                if targetStone and (targetStone:GetAttribute("AvailableSlot") or 0) <= 0 then break end
                 
                 local d = hrp.Position - goal
                 if Vector3.new(d.X, 0, d.Z).Magnitude < 6.5 then break end
@@ -815,7 +861,14 @@ local function humanizedWalkTo(targetStone)
     jumping = false
     clearTrail()
     stopSprint()
-    return isNearStone()
+    
+    if targetStone then return isNearStone() end
+    return (hrp.Position - targetPos).Magnitude <= 14
+end
+
+local function humanizedWalkTo(targetStone)
+    if not targetStone then return false end
+    return humanizedWalkToPos(targetStone:GetBoundingBox().Position, targetStone)
 end
 
 local function getMiningUI() return PGui:FindFirstChild("MiningUI") end
@@ -979,7 +1032,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.7",
+    LoadingSubtitle = "v4.8",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -987,7 +1040,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "IndoVoiceHub",
-        FileName = "Config_v47"
+        FileName = "Config_v48"
     },
     KeySystem = false,
 })
@@ -1109,6 +1162,61 @@ MT:CreateSlider({
         Cfg.ZoneRadius = v
         if Cfg.ZoneCenter then
             ZoneStatusP:Set({ Title = "Zone Status", Content = "Home: " .. math.floor(Cfg.ZoneCenter.X) .. ", " .. math.floor(Cfg.ZoneCenter.Y) .. ", " .. math.floor(Cfg.ZoneCenter.Z) .. "\nRadius: " .. v .. "m" })
+        end
+    end,
+})
+
+MT:CreateDivider()
+MT:CreateSection("Strict AFK & Idle 🏖️")
+
+MT:CreateToggle({
+    Name = "Strict AFK Mode (Hotspot + Buddy)",
+    CurrentValue = false,
+    Flag = "SAFK",
+    Callback = function(v) Cfg.StrictAFKMode = v end,
+})
+
+MT:CreateSlider({
+    Name = "Strict AFK Min Buddy",
+    Range = {1, 5},
+    Increment = 1,
+    CurrentValue = 2,
+    Flag = "SAFKB",
+    Callback = function(v) Cfg.StrictAFKMinBuddy = v end,
+})
+
+MT:CreateToggle({
+    Name = "Hide from Friends (Auto-AFK)",
+    CurrentValue = false,
+    Flag = "HFF",
+    Callback = function(v) Cfg.HideFromFriends = v end,
+})
+
+local AFKStatusP = MT:CreateParagraph({ Title = "AFK Spot", Content = "No AFK Spot set. Stand where you want and press 'Set AFK Spot'." })
+
+MT:CreateButton({
+    Name = "🏖️ Set AFK / Idle Spot (Current Pos)",
+    Callback = function()
+        local hrp = getHRP()
+        if hrp then
+            Cfg.AFKSpotCenter = hrp.Position
+            AFKStatusP:Set({ Title = "AFK Spot", Content = "Set at: " .. math.floor(hrp.Position.X) .. ", " .. math.floor(hrp.Position.Y) .. ", " .. math.floor(hrp.Position.Z) .. "\nRadius: " .. Cfg.AFKSpotRadius .. "m" })
+            Rayfield:Notify({ Title = "AFK Spot Set! 🏖️", Content = "Your character will chill here when no good stones are found.", Duration = 3 })
+        end
+    end,
+})
+
+MT:CreateSlider({
+    Name = "AFK Idle Radius",
+    Range = {5, 50},
+    Increment = 5,
+    Suffix = "m",
+    CurrentValue = 15,
+    Flag = "AFKR",
+    Callback = function(v)
+        Cfg.AFKSpotRadius = v
+        if Cfg.AFKSpotCenter then
+            AFKStatusP:Set({ Title = "AFK Spot", Content = "Set at: " .. math.floor(Cfg.AFKSpotCenter.X) .. ", " .. math.floor(Cfg.AFKSpotCenter.Y) .. ", " .. math.floor(Cfg.AFKSpotCenter.Z) .. "\nRadius: " .. v .. "m" })
         end
     end,
 })
@@ -1299,8 +1407,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.7",
-    Content = "• Hotspot is now the ULTIMATE priority (Beats 10+ player normal stones)\n• Buddy mining scales with crowd size!\n• Reroll now stays at the SAME stone!\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
+    Title = "v4.8",
+    Content = "• Strict VIP AFK Mode (Hotspot + Buddy Only)\n• Humanized Idling (Holds random items in AFK zone)\n• Hide From Friends Feature\n• Hotspot is now the ULTIMATE priority\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1328,6 +1436,47 @@ local function updateStatus()
             .. " [" .. av .. " slots] " .. math.floor(bestDist) .. "m"
     end
     pcall(function() StatusP:Set({ Title = "Status", Content = t }) end)
+end
+
+-- ═══════════════════════════════════════════════
+-- IDLE BEHAVIOR
+-- ═══════════════════════════════════════════════
+
+local function equipRandomIdleItem()
+    local c = getChar()
+    if not c then return end
+    
+    local tool = c:FindFirstChildOfClass("Tool")
+    if tool and not string.match(string.lower(tool.Name), "pickaxe") and not string.match(string.lower(tool.Name), "board") then
+        return -- Already holding a valid idle item
+    end
+
+    unequipPick()
+    task.wait(0.5)
+    
+    local vim = game:GetService("VirtualInputManager")
+    for attempts = 1, 3 do
+        if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID then return end
+        local randomKey = tostring(math.random(1, 9))
+        vim:SendKeyEvent(true, Enum.KeyCode[randomKey], false, game)
+        task.wait(0.05)
+        vim:SendKeyEvent(false, Enum.KeyCode[randomKey], false, game)
+        task.wait(0.3)
+        
+        local currentTool = c:FindFirstChildOfClass("Tool")
+        if currentTool then
+            if string.match(string.lower(currentTool.Name), "pickaxe") or string.match(string.lower(currentTool.Name), "board") then
+                -- Unequip it because it's a pickaxe or board
+                vim:SendKeyEvent(true, Enum.KeyCode[randomKey], false, game)
+                task.wait(0.05)
+                vim:SendKeyEvent(false, Enum.KeyCode[randomKey], false, game)
+                task.wait(0.3)
+            else
+                -- It's a valid non-pickaxe tool! Keep holding it.
+                return
+            end
+        end
+    end
 end
 
 -- ═══════════════════════════════════════════════
@@ -1466,7 +1615,19 @@ local function mainLoop()
 
         -- Evaluate targets between ores
         if Cfg.FullAuto then
+            -- Friend Check & Evasion
+            local friendCount = 0
+            for _, _ in pairs(_friendsInServer) do friendCount = friendCount + 1 end
+            
+            local isHiding = false
+            if Cfg.HideFromFriends and friendCount > 0 then
+                isHiding = true
+                Stats.phase = "🙈 Friend in server! Hiding..."
+            end
+
             local best, bestScore, bestDist = getBestStone()
+            if isHiding then best = nil end -- Force AFK if hiding
+
             if best then
                 local currentNearest, currentDist = getNearestStone()
                 local isAtValidStone = currentNearest and currentDist <= 14
@@ -1496,7 +1657,31 @@ local function mainLoop()
                     end
                 end
             else
-                Stats.phase = "All stones depleted, waiting..."
+                if isHiding then
+                    Stats.phase = "🙈 Hiding from friends..."
+                else
+                    Stats.phase = "All stones depleted, waiting..."
+                end
+                
+                if (Cfg.StrictAFKMode or isHiding) and Cfg.AFKSpotCenter then
+                    local hrp = getHRP()
+                    if hrp then
+                        local distToAFK = (hrp.Position - Cfg.AFKSpotCenter).Magnitude
+                        if distToAFK > Cfg.AFKSpotRadius then
+                            -- Generate random point in radius
+                            local angle = math.random() * math.pi * 2
+                            local r = math.random() * Cfg.AFKSpotRadius
+                            local targetPos = Cfg.AFKSpotCenter + Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
+                            
+                            Stats.phase = isHiding and "🙈 Running to AFK Spot..." or "🏖️ Running to AFK Spot..."
+                            humanizedWalkToPos(targetPos)
+                        else
+                            Stats.phase = isHiding and "🙈 Hiding at AFK Spot..." or "🏖️ Idling at AFK Spot..."
+                            equipRandomIdleItem()
+                        end
+                    end
+                end
+                
                 _lastStoneName = ""
                 _skipCurrentStone = false
                 task.wait(1.5)
@@ -1678,8 +1863,8 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.7",
-    Content = "Hotspot menjadi prioritas MUTLAK!\nHotspot sepi akan mengalahkan batu biasa yang ramai.",
+    Title = "Indo Voice Hub v4.8",
+    Content = "Strict AFK Mode + Friend Hiding siap digunakan!\nSet AFK Spot kamu sekarang.",
     Duration = 5,
     Image = "check-circle",
 })
