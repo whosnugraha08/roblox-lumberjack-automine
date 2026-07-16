@@ -1032,7 +1032,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.8",
+    LoadingSubtitle = "v4.8.1",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -1457,19 +1457,20 @@ local function equipRandomIdleItem()
     local vim = game:GetService("VirtualInputManager")
     for attempts = 1, 3 do
         if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID then return end
-        local randomKey = tostring(math.random(1, 9))
-        vim:SendKeyEvent(true, Enum.KeyCode[randomKey], false, game)
+        local randomKeyStr = tostring(math.random(1, 9))
+        local keyCode = Enum.KeyCode["Number" .. randomKeyStr]
+        vim:SendKeyEvent(true, keyCode, false, game)
         task.wait(0.05)
-        vim:SendKeyEvent(false, Enum.KeyCode[randomKey], false, game)
+        vim:SendKeyEvent(false, keyCode, false, game)
         task.wait(0.3)
         
         local currentTool = c:FindFirstChildOfClass("Tool")
         if currentTool then
             if string.match(string.lower(currentTool.Name), "pickaxe") or string.match(string.lower(currentTool.Name), "board") then
                 -- Unequip it because it's a pickaxe or board
-                vim:SendKeyEvent(true, Enum.KeyCode[randomKey], false, game)
+                vim:SendKeyEvent(true, keyCode, false, game)
                 task.wait(0.05)
-                vim:SendKeyEvent(false, Enum.KeyCode[randomKey], false, game)
+                vim:SendKeyEvent(false, keyCode, false, game)
                 task.wait(0.3)
             else
                 -- It's a valid non-pickaxe tool! Keep holding it.
