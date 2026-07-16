@@ -63,6 +63,25 @@ local Stats = { mined = 0, phase = "Idle" }
 local _skipCurrentStone = false -- flag when "fully occupied"
 
 -- ═══════════════════════════════════════════════
+-- REMOTE EVENT LISTENER
+-- ═══════════════════════════════════════════════
+_G.LatestRarityFromRemote = nil
+
+task.spawn(function()
+    for _, v in pairs(game:GetDescendants()) do
+        if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then
+            if _G.StartMinigameConn then _G.StartMinigameConn:Disconnect() end
+            _G.StartMinigameConn = v.OnClientEvent:Connect(function(rarity)
+                if type(rarity) == "string" then
+                    _G.LatestRarityFromRemote = rarity
+                end
+            end)
+            break
+        end
+    end
+end)
+
+-- ═══════════════════════════════════════════════
 -- HELPERS
 -- ═══════════════════════════════════════════════
 
@@ -742,6 +761,23 @@ end
 
 local function getMiningUI() return PGui:FindFirstChild("MiningUI") end
 
+local function stopTimingWatcher()
+    if _G.TimingConn then _G.TimingConn:Disconnect(); _G.TimingConn = nil end
+end
+
+local function resetMinigameState()
+    stopTimingWatcher()
+    local hum = getHum()
+    if hum then hum:UnequipTools() end
+    local timeout = tick() + 3
+    while getMiningUI() and tick() < timeout do task.wait(0.1) end
+    task.wait(0.2)
+    _G.TestedCurrentStone = false
+    _G.PhaseCount = 0
+    _G.HitsThisPhase = 0
+    _G.LatestRarityFromRemote = nil
+end
+
 -- ═══════════════════════════════════════════════
 -- DRAG PHASE — getconnections
 -- ═══════════════════════════════════════════════
@@ -757,12 +793,12 @@ local function handleDrag(ui)
 
     -- Rarity-based reroll check
     if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-        local oreRarity = ui:GetAttribute("Rarity")
+        local oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
         if not oreRarity then 
             -- Give it a quick chance to load in drag phase
             for _ = 1, 5 do
                 task.wait(0.1)
-                oreRarity = ui:GetAttribute("Rarity")
+                oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
                 if oreRarity then break end
             end
             if not oreRarity then oreRarity = "Common" end
@@ -775,12 +811,7 @@ local function handleDrag(ui)
 
         if oreLevel < minLevel then
             Stats.phase = "Ampas! [" .. oreRarity .. "] Rerolling! 💎"
-            unequipPick()
-            local timeout = tick() + 3
-            while getMiningUI() and tick() < timeout do task.wait(0.1) end
-            task.wait(0.5)
-            _G.TestedCurrentStone = false
-            _G.PhaseCount = 0
+            resetMinigameState()
             return "reroll"
         else
             Stats.phase = "Ore: [" .. oreRarity .. "] 🚀 Mining!"
@@ -829,6 +860,8 @@ local function startTimingWatcher()
         -- Tolerance is 15% of the yellow bar's width from the exact center
         local tolerance = bar.AbsoluteSize.X * 0.15
         
+        if not _G.TestedCurrentStone then return end
+
         if math.abs(pointCenter - barCenter) <= tolerance then
             if not _G.WaitingForPointToLeave then
                 _G.HitsThisPhase = (_G.HitsThisPhase or 0) + 1
@@ -843,10 +876,6 @@ local function startTimingWatcher()
             _G.WaitingForPointToLeave = false
         end
     end)
-end
-
-local function stopTimingWatcher()
-    if _G.TimingConn then _G.TimingConn:Disconnect(); _G.TimingConn = nil end
 end
 
 -- ═══════════════════════════════════════════════
@@ -1250,12 +1279,12 @@ local function mainLoop()
 
             -- Early rarity check: reroll immediately on first detection
             if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-                local oreRarity = ui:GetAttribute("Rarity")
+                local oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
                 if not oreRarity then 
                     -- Wait up to 1 second for the attribute to load from server
                     for _ = 1, 10 do
                         task.wait(0.1)
-                        oreRarity = ui:GetAttribute("Rarity")
+                        oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
                         if oreRarity then break end
                     end
                     -- If still nil after 1 second, it's definitely Common (server omitted default value)
@@ -1273,13 +1302,7 @@ local function mainLoop()
                 if oreLevel < minLevel then
                     warn("[RARITY CHECK] Skipping! " .. oreLevel .. " < " .. minLevel)
                     Stats.phase = "Ampas! [" .. oreRarity .. "] Rerolling! 💎"
-                    unequipPick()
-                    local timeout = tick() + 3
-                    while getMiningUI() and tick() < timeout do task.wait(0.1) end
-                    task.wait(0.5)
-                    _G.TestedCurrentStone = false
-                    _G.PhaseCount = 0
-                    _G.HitsThisPhase = 0
+                    resetMinigameState()
                     _lastMinigame = "None"
                     continue
                 elseif not _G.TestedCurrentStone then
