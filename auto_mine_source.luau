@@ -1016,7 +1016,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.8.3",
+    LoadingSubtitle = "v4.8.4",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -1391,8 +1391,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.8",
-    Content = "• Strict VIP AFK Mode (Hotspot + Buddy Only)\n• Humanized Idling (Holds random items in AFK zone)\n• Hide From Friends Feature\n• Hotspot is now the ULTIMATE priority\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
+    Title = "v4.8.4",
+    Content = "• Strict VIP AFK Mode (Hotspot + Buddy Only)\n• Perbaikan 100% bug stuck AFK Spot dari executor\n• Humanized Idling 100% Works (Equip barang selain pickaxe dari tas secara random)\n• Hide From Friends Feature super cepat (Mid-mining kabur)\n• ESP Flicker diperbaiki\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1427,14 +1427,37 @@ end
 -- ═══════════════════════════════════════════════
 
 local function equipRandomIdleItem()
-    local vim = game:GetService("VirtualInputManager")
-    local randomKeyStr = tostring(math.random(4, 6))
-    local keyCode = Enum.KeyCode["Number" .. randomKeyStr]
+    local bp = LP:FindFirstChild("Backpack")
+    local c = getChar()
+    local hum = getHum()
+    if not bp or not c or not hum then return end
     
-    vim:SendKeyEvent(true, keyCode, false, game)
-    task.wait(0.05)
-    vim:SendKeyEvent(false, keyCode, false, game)
-    task.wait(0.3)
+    local validTools = {}
+    
+    -- Check what's already equipped
+    local currentTool = c:FindFirstChildOfClass("Tool")
+    if currentTool then
+        local name = string.lower(currentTool.Name)
+        if not string.match(name, "pickaxe") and not string.match(name, "board") and not string.match(name, "pick") then
+            return -- Already holding a valid idle item
+        end
+    end
+    
+    -- Collect valid tools from backpack
+    for _, t in ipairs(bp:GetChildren()) do
+        if t:IsA("Tool") then
+            local name = string.lower(t.Name)
+            if not string.match(name, "pickaxe") and not string.match(name, "board") and not string.match(name, "pick") then
+                table.insert(validTools, t)
+            end
+        end
+    end
+    
+    if #validTools > 0 then
+        local randomTool = validTools[math.random(1, #validTools)]
+        hum:EquipTool(randomTool)
+        task.wait(0.3)
+    end
 end
 
 -- ═══════════════════════════════════════════════
@@ -1837,7 +1860,7 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.8",
+    Title = "Indo Voice Hub v4.8.4",
     Content = "Strict AFK Mode + Friend Hiding siap digunakan!\nSet AFK Spot kamu sekarang.",
     Duration = 5,
     Image = "check-circle",
