@@ -979,7 +979,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.3",
+    LoadingSubtitle = "v4.4",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -987,7 +987,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "IndoVoiceHub",
-        FileName = "Config_v43"
+        FileName = "Config_v44"
     },
     KeySystem = false,
 })
@@ -1299,8 +1299,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.3",
-    Content = "• Complete Bugfix: RemoteSpy Memory Leak fixed!\n• PathfindingService + stuck detection\n• Sprint (Shift) + continuous zigzag + jumps\n• Auto re-equip board on knockoff\n• 'Fully occupied' → auto skip to next\n• Mining Buddy & Hotspot priority\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
+    Title = "v4.4",
+    Content = "• Rarity Leak Multi-layer Fix!\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• Auto re-equip board on knockoff\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1549,6 +1549,14 @@ local function mainLoop()
             timeout = timeout + 0.1
         end
 
+        -- MINIGAME SESSION ENDED (UI gone, skipped, or timeout)
+        -- Forcibly reset state here to prevent multi-layer stones from leaking the old rarity!
+        _lastMinigame = "None"
+        _G.HitsThisPhase = 0
+        _G.PhaseCount = 0
+        _G.TestedCurrentStone = false
+        _G.LatestRarityFromRemote = nil
+
         if Cfg.FullAuto and (not isNearStone() or _skipCurrentStone) then
             Stats.phase = "Finding next stone..."
             _skipCurrentStone = false
@@ -1671,8 +1679,8 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.3",
-    Content = "Bug Rarity Bocor (Memory Leak) telah diperbaiki!\nFully occupied → auto skip. 🛹⛏",
+    Title = "Indo Voice Hub v4.4",
+    Content = "Bug Multi-layer Rarity Leak diperbaiki!\nScript tidak akan nyangkut di batu ampas beruntun. 🛹⛏",
     Duration = 5,
     Image = "check-circle",
 })
