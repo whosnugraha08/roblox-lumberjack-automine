@@ -979,7 +979,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.2",
+    LoadingSubtitle = "v4.3",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -987,7 +987,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "IndoVoiceHub",
-        FileName = "Config_v42"
+        FileName = "Config_v43"
     },
     KeySystem = false,
 })
@@ -1299,8 +1299,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.2",
-    Content = "• PathfindingService + stuck detection\n• Sprint (Shift) + continuous zigzag + jumps\n• Auto re-equip board on knockoff\n• 'Fully occupied' → auto skip to next\n• Mining Buddy & Hotspot priority\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
+    Title = "v4.3",
+    Content = "• Complete Bugfix: RemoteSpy Memory Leak fixed!\n• PathfindingService + stuck detection\n• Sprint (Shift) + continuous zigzag + jumps\n• Auto re-equip board on knockoff\n• 'Fully occupied' → auto skip to next\n• Mining Buddy & Hotspot priority\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1461,6 +1461,7 @@ local function mainLoop()
                 _G.HitsThisPhase = 0
                 _G.PhaseCount = 0
                 _G.TestedCurrentStone = false
+                _G.LatestRarityFromRemote = nil
             end
         end
 
@@ -1670,8 +1671,8 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.2",
-    Content = "Sprint + Pathfinding + Board re-equip!\nFully occupied → auto skip. 🛹⛏",
+    Title = "Indo Voice Hub v4.3",
+    Content = "Bug Rarity Bocor (Memory Leak) telah diperbaiki!\nFully occupied → auto skip. 🛹⛏",
     Duration = 5,
     Image = "check-circle",
 })
