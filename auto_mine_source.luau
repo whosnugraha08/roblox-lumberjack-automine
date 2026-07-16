@@ -269,6 +269,28 @@ local function countPlayersNear(pos, radius)
 end
 
 local _lastStoneName = "" -- track current stone to skip it
+local _ignoredStones = {}
+
+local function blacklistCurrentStone()
+    local c = getChar()
+    local hrp = c and c:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local folder = getStoneFolder()
+    if not folder then return end
+    local closest, closestDist = nil, math.huge
+    for _, stone in ipairs(folder:GetChildren()) do
+        local cf = stone:GetBoundingBox()
+        local d = (cf.Position - hrp.Position).Magnitude
+        if d < closestDist then
+            closest = stone
+            closestDist = d
+        end
+    end
+    if closest then
+        _ignoredStones[closest] = true
+        task.delay(120, function() _ignoredStones[closest] = nil end)
+    end
+end
 
 local function scoreStone(stone, myPos)
     local cf = stone:GetBoundingBox()
@@ -280,6 +302,7 @@ local function scoreStone(stone, myPos)
     if available <= 0 then return -9999 end
     if dist > Cfg.MaxDist then return -9999 end -- Too far, skip
     if _skipCurrentStone and stone.Name == _lastStoneName then return -9999 end
+    if _ignoredStones[stone] then return -9999 end
 
     -- Zone filter: only mine stones within ZoneRadius of ZoneCenter
     if Cfg.ZoneOnly and Cfg.ZoneCenter then
@@ -798,14 +821,19 @@ local function resetMinigameState()
     local hum = getHum()
     if hum then pcall(function() hum:UnequipTools() end) end
 
-    -- Fallback: If custom hotbar blocks unequip, walk backward to force cancel
+    -- Fallback: If custom hotbar blocks unequip, simulate pressing hotbar keys 1-9
     task.spawn(function()
         task.wait(0.5)
         if getMiningUI() then
             pcall(function()
-                VIM:SendKeyEvent(true, Enum.KeyCode.S, false, game)
-                task.wait(0.2)
-                VIM:SendKeyEvent(false, Enum.KeyCode.S, false, game)
+                for i = 1, 9 do
+                    if not getMiningUI() then break end
+                    local key = Enum.KeyCode["Number" .. i]
+                    VIM:SendKeyEvent(true, key, false, game)
+                    task.wait(0.05)
+                    VIM:SendKeyEvent(false, key, false, game)
+                    task.wait(0.1)
+                end
             end)
         end
     end)
@@ -851,9 +879,10 @@ local function handleDrag(ui)
 
         if oreLevel < minLevel then
             Stats.phase = "Ampas! [" .. oreRarity .. "] Rerolling! 💎"
+            blacklistCurrentStone()
             resetMinigameState()
             return "reroll"
-        else
+        elseif not _G.TestedCurrentStone then
             Stats.phase = "Ore: [" .. oreRarity .. "] 🚀 Mining!"
             _G.TestedCurrentStone = true
         end
@@ -1342,6 +1371,7 @@ local function mainLoop()
                 if oreLevel < minLevel then
                     warn("[RARITY CHECK] Skipping! " .. oreLevel .. " < " .. minLevel)
                     Stats.phase = "Ampas! [" .. oreRarity .. "] Rerolling! 💎"
+                    blacklistCurrentStone()
                     resetMinigameState()
                     _lastMinigame = "None"
                     continue
