@@ -1016,7 +1016,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.8.4",
+    LoadingSubtitle = "v4.8.5",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -1391,8 +1391,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.8.4",
-    Content = "• Strict VIP AFK Mode (Hotspot + Buddy Only)\n• Perbaikan 100% bug stuck AFK Spot dari executor\n• Humanized Idling 100% Works (Equip barang selain pickaxe dari tas secara random)\n• Hide From Friends Feature super cepat (Mid-mining kabur)\n• ESP Flicker diperbaiki\n\nPress K to toggle UI."
+    Title = "v4.8.5",
+    Content = "• Strict VIP AFK Mode (Hotspot + Buddy Only)\n• Perbaikan 100% bug stuck AFK Spot dari executor\n• Humanized Idling 100% Works (Klik item sekali dan tidak ganti-ganti terus)\n• Hide From Friends Feature super cepat (Mid-mining kabur)\n• ESP Flicker diperbaiki\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1439,7 +1439,10 @@ local function equipRandomIdleItem()
     if currentTool then
         local name = string.lower(currentTool.Name)
         if not string.match(name, "pickaxe") and not string.match(name, "board") and not string.match(name, "pick") then
-            return -- Already holding a valid idle item
+            return -- Already holding a valid idle item, don't swap and don't click again
+        else
+            hum:UnequipTools()
+            task.wait(0.2)
         end
     end
     
@@ -1457,6 +1460,7 @@ local function equipRandomIdleItem()
         local randomTool = validTools[math.random(1, #validTools)]
         hum:EquipTool(randomTool)
         task.wait(0.3)
+        randomTool:Activate()
     end
 end
 
@@ -1660,8 +1664,6 @@ local function mainLoop()
                             humanizedWalkToPos(targetPos)
                         else
                             Stats.phase = isHiding and "🙈 Hiding at AFK Spot..." or "🏖️ Idling at AFK Spot..."
-                            unequipPick()
-                            task.wait(0.3)
                             equipRandomIdleItem()
                         end
                     end
@@ -1860,7 +1862,7 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.8.4",
+    Title = "Indo Voice Hub v4.8.5",
     Content = "Strict AFK Mode + Friend Hiding siap digunakan!\nSet AFK Spot kamu sekarang.",
     Duration = 5,
     Image = "check-circle",
