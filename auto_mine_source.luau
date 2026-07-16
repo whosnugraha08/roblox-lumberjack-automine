@@ -63,8 +63,48 @@ local Stats = { mined = 0, phase = "Idle" }
 local _skipCurrentStone = false -- flag when "fully occupied"
 
 -- ═══════════════════════════════════════════════
--- (Removed Remote Event Hook to prevent Anti-Cheat spoofing)
+-- REMOTE EVENT LISTENER
 -- ═══════════════════════════════════════════════
+_G.LatestRarityFromRemote = nil
+
+local function getLocalStartMinigame()
+    local c = LP.Character
+    if c then
+        for _, t in ipairs(c:GetChildren()) do
+            if t:IsA("Tool") and (t.Name:lower():find("pickaxe") or t.Name:lower():find("pick")) then
+                local rm = t:FindFirstChild("StartMinigame", true)
+                if rm and rm:IsA("RemoteEvent") then return rm end
+            end
+        end
+    end
+    local bp = LP:FindFirstChild("Backpack")
+    if bp then
+        for _, t in ipairs(bp:GetChildren()) do
+            if t:IsA("Tool") and (t.Name:lower():find("pickaxe") or t.Name:lower():find("pick")) then
+                local rm = t:FindFirstChild("StartMinigame", true)
+                if rm and rm:IsA("RemoteEvent") then return rm end
+            end
+        end
+    end
+    return nil
+end
+
+task.spawn(function()
+    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
+        local remote = getLocalStartMinigame()
+        if remote and _G.CurrentStartMinigameRemote ~= remote then
+            if _G.StartMinigameConn then _G.StartMinigameConn:Disconnect() end
+            _G.CurrentStartMinigameRemote = remote
+            _G.StartMinigameConn = remote.OnClientEvent:Connect(function(rarity, data)
+                if type(rarity) == "string" then
+                    _G.LatestRarityFromRemote = rarity
+                end
+            end)
+            warn("[AUTO-MINE] Hooked to Pickaxe Remote: " .. remote:GetFullName())
+        end
+        task.wait(0.5) -- Faster polling to catch quick equips
+    end
+end)
 
 
 -- ═══════════════════════════════════════════════
@@ -793,12 +833,12 @@ local function handleDrag(ui)
 
     -- Rarity-based reroll check
     if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-        local oreRarity = ui:GetAttribute("Rarity")
+        local oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
         if not oreRarity then 
             -- Give it a quick chance to load in drag phase
             for _ = 1, 5 do
                 task.wait(0.1)
-                oreRarity = ui:GetAttribute("Rarity")
+                oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
                 if oreRarity then break end
             end
             if not oreRarity then oreRarity = "Common" end
@@ -1279,12 +1319,12 @@ local function mainLoop()
 
             -- Early rarity check: reroll immediately on first detection
             if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-                local oreRarity = ui:GetAttribute("Rarity")
+                local oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
                 if not oreRarity then 
                     -- Wait up to 1 second for the attribute to load from server
                     for _ = 1, 10 do
                         task.wait(0.1)
-                        oreRarity = ui:GetAttribute("Rarity")
+                        oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
                         if oreRarity then break end
                     end
                     -- If still nil after 1 second, it's definitely Common (server omitted default value)
@@ -1319,6 +1359,7 @@ local function mainLoop()
                 _G.HitsThisPhase = 0
                 _G.PhaseCount = 0
                 _G.TestedCurrentStone = false
+                _G.LatestRarityFromRemote = nil
             end
 
             if currentMinigame == "Timing" and _lastMinigame ~= "Timing" then
