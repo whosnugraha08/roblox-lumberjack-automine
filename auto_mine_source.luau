@@ -321,7 +321,8 @@ local function scoreStone(stone, myPos)
     score = score - dist * 1
     if Cfg.PreferBuddy then
         if playersNear >= 2 then
-            score = score + 1000 -- User requested to prioritize stones with AT LEAST 2 other people
+            -- Base 600 for activating buddy + 300 per person
+            score = score + 600 + (playersNear * 300) 
         end
     end
     if Cfg.PreferHotspot and isHotspot then score = score + 1200 end
@@ -976,7 +977,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.5",
+    LoadingSubtitle = "v4.6",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -984,7 +985,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "IndoVoiceHub",
-        FileName = "Config_v45"
+        FileName = "Config_v46"
     },
     KeySystem = false,
 })
@@ -1296,8 +1297,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.5",
-    Content = "• Reroll now stays at the SAME stone!\n• Buddy mining now strictly requires 2+ people\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
+    Title = "v4.6",
+    Content = "• Buddy mining scales with crowd size! (Switches if crowd is 3+ larger)\n• Reroll now stays at the SAME stone!\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1469,8 +1470,8 @@ local function mainLoop()
                 local isAtValidStone = currentNearest and currentDist <= 14
                 local currentScore = currentNearest and scoreStone(currentNearest, getHRP().Position) or -9999
                 
-                -- Switch if not at any valid stone, OR if the best stone is a MASSIVE upgrade (e.g. Hotspot spawned or current is blacklisted)
-                if not isAtValidStone or (best ~= currentNearest and bestScore > currentScore + 1000) then
+                -- Switch if not at any valid stone, OR if the best stone is a MASSIVE upgrade (e.g. Hotspot spawned, current is blacklisted, or massive crowd difference)
+                if not isAtValidStone or (best ~= currentNearest and bestScore > currentScore + 800) then
                     if bestDist > 14 then
                         local cf = best:GetBoundingBox()
                         local hs = (best:GetAttribute("IsHotspot") or false) and "🔥" or ""
@@ -1675,8 +1676,8 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.5",
-    Content = "Reroll kini TIDAK AKAN pindah batu!\nBuddy mining hanya target >= 2 orang.",
+    Title = "Indo Voice Hub v4.6",
+    Content = "Sistem Crowd (Keramaian) pintar!\nOtomatis pindah jika ada batu dengan lebih dari 3 orang.",
     Duration = 5,
     Image = "check-circle",
 })
