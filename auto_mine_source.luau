@@ -67,21 +67,35 @@ local _skipCurrentStone = false -- flag when "fully occupied"
 -- ═══════════════════════════════════════════════
 _G.LatestRarityFromRemote = nil
 
-task.spawn(function()
-    while not _G.StartMinigameConn do
-        for _, v in pairs(game:GetDescendants()) do
-            if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then
-                _G.StartMinigameConn = v.OnClientEvent:Connect(function(rarity, data)
-                    warn("[AUTO-MINE] STARTMINIGAME FIRED! Rarity arg type: " .. type(rarity) .. " | Value: " .. tostring(rarity))
-                    if type(rarity) == "string" then
-                        _G.LatestRarityFromRemote = rarity
-                    end
-                end)
-                warn("[AUTO-MINE] SUCCESSFULLY CONNECTED TO StartMinigame Remote!")
-                break
-            end
+local function getLocalStartMinigame()
+    if LP.Character then
+        for _, v in ipairs(LP.Character:GetDescendants()) do
+            if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then return v end
         end
-        if not _G.StartMinigameConn then task.wait(1) end
+    end
+    local bp = LP:FindFirstChild("Backpack")
+    if bp then
+        for _, v in ipairs(bp:GetDescendants()) do
+            if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then return v end
+        end
+    end
+    return nil
+end
+
+task.spawn(function()
+    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
+        local remote = getLocalStartMinigame()
+        if remote and _G.CurrentStartMinigameRemote ~= remote then
+            if _G.StartMinigameConn then _G.StartMinigameConn:Disconnect() end
+            _G.CurrentStartMinigameRemote = remote
+            _G.StartMinigameConn = remote.OnClientEvent:Connect(function(rarity, data)
+                if type(rarity) == "string" then
+                    _G.LatestRarityFromRemote = rarity
+                end
+            end)
+            warn("[AUTO-MINE] Hooked to: " .. remote:GetFullName())
+        end
+        task.wait(1)
     end
 end)
 
