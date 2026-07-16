@@ -824,32 +824,47 @@ local function stopTimingWatcher()
 end
 
 local function resetMinigameState()
+    -- 1. Stop clicking the timing bar
+    if Cfg.AutoReroll then
+        _G.TestedCurrentStone = false -- This makes startTimingWatcher skip clicks
+    end
+
+    -- 2. Click far away from the bar to avoid accidental hits
+    pcall(function()
+        vimClick(10, 10)
+    end)
+    task.wait(0.1)
+
+    -- 3. Unequip pickaxe to cancel minigame
     local hum = getHum()
     if hum then pcall(function() hum:UnequipTools() end) end
+    task.wait(0.3)
 
-    -- Fallback: If custom hotbar blocks unequip, simulate pressing hotbar keys 1-9
-    task.spawn(function()
-        task.wait(0.5)
-        if getMiningUI() then
-            pcall(function()
-                for i = 1, 9 do
-                    if not getMiningUI() then break end
-                    local key = Enum.KeyCode["Number" .. i]
-                    VIM:SendKeyEvent(true, key, false, game)
-                    task.wait(0.05)
-                    VIM:SendKeyEvent(false, key, false, game)
-                    task.wait(0.1)
-                end
-            end)
-        end
-    end)
+    -- 4. If minigame still active, spam number keys as fallback
+    if getMiningUI() then
+        pcall(function()
+            for i = 1, 9 do
+                if not getMiningUI() then break end
+                local key = Enum.KeyCode["Number" .. i]
+                VIM:SendKeyEvent(true, key, false, game)
+                task.wait(0.05)
+                VIM:SendKeyEvent(false, key, false, game)
+                task.wait(0.1)
+            end
+        end)
+    end
 
-    local timeout = tick() + 3
+    -- 5. Wait for UI to close
+    local timeout = tick() + 4
     while getMiningUI() and tick() < timeout do task.wait(0.1) end
     task.wait(0.2)
+
+    -- 6. Reset all state
     _G.TestedCurrentStone = false
     _G.PhaseCount = 0
     _G.HitsThisPhase = 0
+    _G.LatestRarityFromRemote = nil
+    _G.WaitingForPointToLeave = false
 end
 
 -- ═══════════════════════════════════════════════
@@ -895,6 +910,7 @@ local function handleDrag(ui)
     end
 
     Stats.phase = "Dragging..."
+    local holder = ui:FindFirstChild("MiningHolder")
     for attempt = 1, 5 do
         if not pre.Visible or (holder and holder.Visible) then return true end
         if not _G.AutoFarmEnabled_v3 then return false end
@@ -1318,7 +1334,6 @@ end
 -- MAIN LOOP
 -- ═══════════════════════════════════════════════
 
-local _testedCurrentStone = false
 local _lastMinigame = "None"
 
 local function mainLoop()
@@ -1332,8 +1347,6 @@ local function mainLoop()
             task.wait(0.5)
             continue
         end
-
-
 
         -- Check "fully occupied" → skip
         if _skipCurrentStone then
