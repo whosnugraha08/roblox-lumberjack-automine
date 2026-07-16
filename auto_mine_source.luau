@@ -336,6 +336,8 @@ local function isNearStone() return select(2, getNearestStone()) <= 14 end
 -- STONE ESP
 -- ═══════════════════════════════════════════════
 
+local oldEsp = workspace.CurrentCamera:FindFirstChild("StoneESP_Folder")
+if oldEsp then oldEsp:Destroy() end
 local espFolder = Instance.new("Folder")
 espFolder.Name = "StoneESP_Folder"
 espFolder.Parent = workspace.CurrentCamera
@@ -1337,6 +1339,7 @@ local function mainLoop()
                 _G.HitsThisPhase = 0
                 _G.PhaseCount = 0
                 _G.TestedCurrentStone = false
+                _G.LatestRarityFromRemote = nil
             end
 
             if currentMinigame == "Timing" and _lastMinigame ~= "Timing" then
