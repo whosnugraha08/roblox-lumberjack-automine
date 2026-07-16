@@ -71,11 +71,13 @@ task.spawn(function()
     while not _G.StartMinigameConn do
         for _, v in pairs(game:GetDescendants()) do
             if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then
-                _G.StartMinigameConn = v.OnClientEvent:Connect(function(rarity)
+                _G.StartMinigameConn = v.OnClientEvent:Connect(function(rarity, data)
+                    warn("[AUTO-MINE] STARTMINIGAME FIRED! Rarity arg type: " .. type(rarity) .. " | Value: " .. tostring(rarity))
                     if type(rarity) == "string" then
                         _G.LatestRarityFromRemote = rarity
                     end
                 end)
+                warn("[AUTO-MINE] SUCCESSFULLY CONNECTED TO StartMinigame Remote!")
                 break
             end
         end
