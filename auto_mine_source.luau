@@ -98,6 +98,13 @@ task.spawn(function()
             _G.StartMinigameConn = remote.OnClientEvent:Connect(function(rarity, data)
                 if type(rarity) == "string" then
                     _G.LatestRarityFromRemote = rarity
+                    pcall(function()
+                        game.StarterGui:SetCore("SendNotification", {
+                            Title = "RemoteSpy Hit!",
+                            Text = "Rarity: " .. rarity,
+                            Duration = 3,
+                        })
+                    end)
                 end
             end)
             warn("[AUTO-MINE] Hooked to Pickaxe Remote: " .. remote:GetFullName())
