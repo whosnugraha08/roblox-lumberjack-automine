@@ -1473,8 +1473,8 @@ local function mainLoop()
                 local isAtValidStone = currentNearest and currentDist <= 14
                 local currentScore = currentNearest and scoreStone(currentNearest, getHRP().Position) or -9999
                 
-                -- Switch if not at any valid stone, OR if the best stone is significantly better (>150 pts difference)
-                if not isAtValidStone or (best ~= currentNearest and bestScore > currentScore + 150) then
+                -- Switch if not at any valid stone, OR if the best stone is a MASSIVE upgrade (e.g. Hotspot spawned or current is blacklisted)
+                if not isAtValidStone or (best ~= currentNearest and bestScore > currentScore + 1000) then
                     if bestDist > 14 then
                         local cf = best:GetBoundingBox()
                         local hs = (best:GetAttribute("IsHotspot") or false) and "🔥" or ""
