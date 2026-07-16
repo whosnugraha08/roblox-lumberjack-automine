@@ -63,41 +63,9 @@ local Stats = { mined = 0, phase = "Idle" }
 local _skipCurrentStone = false -- flag when "fully occupied"
 
 -- ═══════════════════════════════════════════════
--- REMOTE EVENT LISTENER
+-- (Removed Remote Event Hook to prevent Anti-Cheat spoofing)
 -- ═══════════════════════════════════════════════
-_G.LatestRarityFromRemote = nil
 
-local function getLocalStartMinigame()
-    if LP.Character then
-        for _, v in ipairs(LP.Character:GetDescendants()) do
-            if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then return v end
-        end
-    end
-    local bp = LP:FindFirstChild("Backpack")
-    if bp then
-        for _, v in ipairs(bp:GetDescendants()) do
-            if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then return v end
-        end
-    end
-    return nil
-end
-
-task.spawn(function()
-    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
-        local remote = getLocalStartMinigame()
-        if remote and _G.CurrentStartMinigameRemote ~= remote then
-            if _G.StartMinigameConn then _G.StartMinigameConn:Disconnect() end
-            _G.CurrentStartMinigameRemote = remote
-            _G.StartMinigameConn = remote.OnClientEvent:Connect(function(rarity, data)
-                if type(rarity) == "string" then
-                    _G.LatestRarityFromRemote = rarity
-                end
-            end)
-            warn("[AUTO-MINE] Hooked to: " .. remote:GetFullName())
-        end
-        task.wait(1)
-    end
-end)
 
 -- ═══════════════════════════════════════════════
 -- HELPERS
@@ -788,14 +756,26 @@ end
 local function resetMinigameState()
     stopTimingWatcher()
     local hum = getHum()
-    if hum then hum:UnequipTools() end
+    if hum then pcall(function() hum:UnequipTools() end) end
+
+    -- Fallback: If custom hotbar blocks unequip, walk backward to force cancel
+    task.spawn(function()
+        task.wait(0.5)
+        if getMiningUI() then
+            pcall(function()
+                VIM:SendKeyEvent(true, Enum.KeyCode.S, false, game)
+                task.wait(0.2)
+                VIM:SendKeyEvent(false, Enum.KeyCode.S, false, game)
+            end)
+        end
+    end)
+
     local timeout = tick() + 3
     while getMiningUI() and tick() < timeout do task.wait(0.1) end
     task.wait(0.2)
     _G.TestedCurrentStone = false
     _G.PhaseCount = 0
     _G.HitsThisPhase = 0
-    _G.LatestRarityFromRemote = nil
 end
 
 -- ═══════════════════════════════════════════════
@@ -813,12 +793,12 @@ local function handleDrag(ui)
 
     -- Rarity-based reroll check
     if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-        local oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
+        local oreRarity = ui:GetAttribute("Rarity")
         if not oreRarity then 
             -- Give it a quick chance to load in drag phase
             for _ = 1, 5 do
                 task.wait(0.1)
-                oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
+                oreRarity = ui:GetAttribute("Rarity")
                 if oreRarity then break end
             end
             if not oreRarity then oreRarity = "Common" end
@@ -1299,12 +1279,12 @@ local function mainLoop()
 
             -- Early rarity check: reroll immediately on first detection
             if Cfg.AutoReroll and not _G.TestedCurrentStone and not _skipCurrentStone then
-                local oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
+                local oreRarity = ui:GetAttribute("Rarity")
                 if not oreRarity then 
                     -- Wait up to 1 second for the attribute to load from server
                     for _ = 1, 10 do
                         task.wait(0.1)
-                        oreRarity = _G.LatestRarityFromRemote or ui:GetAttribute("Rarity")
+                        oreRarity = ui:GetAttribute("Rarity")
                         if oreRarity then break end
                     end
                     -- If still nil after 1 second, it's definitely Common (server omitted default value)
@@ -1339,7 +1319,6 @@ local function mainLoop()
                 _G.HitsThisPhase = 0
                 _G.PhaseCount = 0
                 _G.TestedCurrentStone = false
-                _G.LatestRarityFromRemote = nil
             end
 
             if currentMinigame == "Timing" and _lastMinigame ~= "Timing" then
