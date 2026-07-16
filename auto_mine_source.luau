@@ -68,39 +68,23 @@ local Cfg = {
 }
 
 -- ═══ FRIEND DETECTION SYSTEM ═══
-local _friendsInServer = {}
-local _friendCheckRunning = true
+local _friendCache = {}
 
-local function checkFriend(player)
-    if not _friendCheckRunning then return end
-    if player == LP then return end
-    pcall(function()
-        if LP:IsFriendsWith(player.UserId) then
-            _friendsInServer[player.UserId] = true
-        end
-    end)
-end
-
-for _, p in ipairs(Players:GetPlayers()) do
-    task.spawn(checkFriend, p)
-end
-
-local friendAddedConn = Players.PlayerAdded:Connect(function(player)
-    task.spawn(checkFriend, player)
-end)
-
-local friendRemovingConn = Players.PlayerRemoving:Connect(function(player)
-    _friendsInServer[player.UserId] = nil
-end)
-
-task.spawn(function()
-    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
-        task.wait(2)
+local function isPlayerFriend(player)
+    if player == LP then return false end
+    if _friendCache[player.UserId] ~= nil then
+        return _friendCache[player.UserId]
     end
-    _friendCheckRunning = false
-    friendAddedConn:Disconnect()
-    friendRemovingConn:Disconnect()
-end)
+    -- Prevent multiple requests for the same player while pending
+    _friendCache[player.UserId] = false 
+    task.spawn(function()
+        pcall(function()
+            local status = LP:IsFriendsWith(player.UserId)
+            _friendCache[player.UserId] = status
+        end)
+    end)
+    return false
+end
 local Stats = { mined = 0, phase = "Idle" }
 local _skipCurrentStone = false -- flag when "fully occupied"
 
@@ -1032,7 +1016,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.8.2",
+    LoadingSubtitle = "v4.8.3",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -1591,7 +1575,9 @@ local function mainLoop()
         if Cfg.FullAuto then
             -- Friend Check & Evasion
             local friendCount = 0
-            for _, _ in pairs(_friendsInServer) do friendCount = friendCount + 1 end
+            for _, p in ipairs(Players:GetPlayers()) do
+                if isPlayerFriend(p) then friendCount = friendCount + 1 end
+            end
             
             local isHiding = false
             if Cfg.HideFromFriends and friendCount > 0 then
@@ -1694,7 +1680,9 @@ local function mainLoop()
         while _G.AutoFarmEnabled_v3 and Cfg.AutoMine and timeout < 60 do
             -- Check friend evasion mid-mining
             local friendCount = 0
-            for _, _ in pairs(_friendsInServer) do friendCount = friendCount + 1 end
+            for _, p in ipairs(Players:GetPlayers()) do
+                if isPlayerFriend(p) then friendCount = friendCount + 1 end
+            end
             if Cfg.HideFromFriends and friendCount > 0 then
                 Stats.phase = "🙈 Friend joined! Hiding..."
                 resetMinigameState()
