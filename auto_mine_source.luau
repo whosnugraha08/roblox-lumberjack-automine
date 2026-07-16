@@ -68,16 +68,18 @@ local _skipCurrentStone = false -- flag when "fully occupied"
 _G.LatestRarityFromRemote = nil
 
 task.spawn(function()
-    for _, v in pairs(game:GetDescendants()) do
-        if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then
-            if _G.StartMinigameConn then _G.StartMinigameConn:Disconnect() end
-            _G.StartMinigameConn = v.OnClientEvent:Connect(function(rarity)
-                if type(rarity) == "string" then
-                    _G.LatestRarityFromRemote = rarity
-                end
-            end)
-            break
+    while not _G.StartMinigameConn do
+        for _, v in pairs(game:GetDescendants()) do
+            if v.Name == "StartMinigame" and v:IsA("RemoteEvent") then
+                _G.StartMinigameConn = v.OnClientEvent:Connect(function(rarity)
+                    if type(rarity) == "string" then
+                        _G.LatestRarityFromRemote = rarity
+                    end
+                end)
+                break
+            end
         end
+        if not _G.StartMinigameConn then task.wait(1) end
     end
 end)
 
