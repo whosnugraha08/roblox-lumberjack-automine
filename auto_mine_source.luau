@@ -325,7 +325,9 @@ local function scoreStone(stone, myPos)
             score = score + 600 + (playersNear * 300) 
         end
     end
-    if Cfg.PreferHotspot and isHotspot then score = score + 1200 end
+    if Cfg.PreferHotspot and isHotspot then 
+        score = score + 5000 -- Massive bonus so Hotspot ALWAYS beats normal stones, even if normal stones have 10+ people
+    end
     score = score + available * 10
     return score
 end
@@ -977,7 +979,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.6",
+    LoadingSubtitle = "v4.7",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -985,7 +987,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "IndoVoiceHub",
-        FileName = "Config_v46"
+        FileName = "Config_v47"
     },
     KeySystem = false,
 })
@@ -1297,8 +1299,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.6",
-    Content = "• Buddy mining scales with crowd size! (Switches if crowd is 3+ larger)\n• Reroll now stays at the SAME stone!\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
+    Title = "v4.7",
+    Content = "• Hotspot is now the ULTIMATE priority (Beats 10+ player normal stones)\n• Buddy mining scales with crowd size!\n• Reroll now stays at the SAME stone!\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1676,8 +1678,8 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.6",
-    Content = "Sistem Crowd (Keramaian) pintar!\nOtomatis pindah jika ada batu dengan lebih dari 3 orang.",
+    Title = "Indo Voice Hub v4.7",
+    Content = "Hotspot menjadi prioritas MUTLAK!\nHotspot sepi akan mengalahkan batu biasa yang ramai.",
     Duration = 5,
     Image = "check-circle",
 })
