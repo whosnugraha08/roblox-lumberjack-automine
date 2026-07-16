@@ -824,7 +824,6 @@ local function stopTimingWatcher()
 end
 
 local function resetMinigameState()
-    stopTimingWatcher()
     local hum = getHum()
     if hum then pcall(function() hum:UnequipTools() end) end
 
