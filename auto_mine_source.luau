@@ -321,9 +321,7 @@ local function scoreStone(stone, myPos)
     score = score - dist * 1
     if Cfg.PreferBuddy then
         if playersNear >= 2 then
-            score = score + 800 -- 2+ players gives +25% luck buff!
-        elseif playersNear == 1 then
-            score = score + 400 -- 1 player removes solo penalty
+            score = score + 1000 -- User requested to prioritize stones with AT LEAST 2 other people
         end
     end
     if Cfg.PreferHotspot and isHotspot then score = score + 1200 end
@@ -900,7 +898,6 @@ local function handleDrag(ui)
 
         if oreLevel < minLevel then
             Stats.phase = "Ampas! [" .. oreRarity .. "] Rerolling! 💎"
-            blacklistCurrentStone()
             resetMinigameState()
             return "reroll"
         elseif not _G.TestedCurrentStone then
@@ -979,7 +976,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.4",
+    LoadingSubtitle = "v4.5",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -987,7 +984,7 @@ local Window = Rayfield:CreateWindow({
     ConfigurationSaving = {
         Enabled = true,
         FolderName = "IndoVoiceHub",
-        FileName = "Config_v44"
+        FileName = "Config_v45"
     },
     KeySystem = false,
 })
@@ -1299,8 +1296,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.4",
-    Content = "• Rarity Leak Multi-layer Fix!\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• Auto re-equip board on knockoff\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
+    Title = "v4.5",
+    Content = "• Reroll now stays at the SAME stone!\n• Buddy mining now strictly requires 2+ people\n• No more target ping-ponging\n• PathfindingService + stuck detection\n• ESP: 🔥Hotspot / 👥Players / slots\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1390,7 +1387,6 @@ local function mainLoop()
                 if oreLevel < minLevel then
                     warn("[RARITY CHECK] Skipping! " .. oreLevel .. " < " .. minLevel)
                     Stats.phase = "Ampas! [" .. oreRarity .. "] Rerolling! 💎"
-                    blacklistCurrentStone()
                     resetMinigameState()
                     _lastMinigame = "None"
                     continue
@@ -1679,8 +1675,8 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.4",
-    Content = "Bug Multi-layer Rarity Leak diperbaiki!\nScript tidak akan nyangkut di batu ampas beruntun. 🛹⛏",
+    Title = "Indo Voice Hub v4.5",
+    Content = "Reroll kini TIDAK AKAN pindah batu!\nBuddy mining hanya target >= 2 orang.",
     Duration = 5,
     Image = "check-circle",
 })
