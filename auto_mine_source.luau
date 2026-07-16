@@ -1032,7 +1032,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.8.1",
+    LoadingSubtitle = "v4.8.2",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -1443,41 +1443,14 @@ end
 -- ═══════════════════════════════════════════════
 
 local function equipRandomIdleItem()
-    local c = getChar()
-    if not c then return end
-    
-    local tool = c:FindFirstChildOfClass("Tool")
-    if tool and not string.match(string.lower(tool.Name), "pickaxe") and not string.match(string.lower(tool.Name), "board") then
-        return -- Already holding a valid idle item
-    end
-
-    unequipPick()
-    task.wait(0.5)
-    
     local vim = game:GetService("VirtualInputManager")
-    for attempts = 1, 3 do
-        if not _G.AutoFarmEnabled_v3 or _G.AutoFarmRunID ~= myRunID then return end
-        local randomKeyStr = tostring(math.random(1, 9))
-        local keyCode = Enum.KeyCode["Number" .. randomKeyStr]
-        vim:SendKeyEvent(true, keyCode, false, game)
-        task.wait(0.05)
-        vim:SendKeyEvent(false, keyCode, false, game)
-        task.wait(0.3)
-        
-        local currentTool = c:FindFirstChildOfClass("Tool")
-        if currentTool then
-            if string.match(string.lower(currentTool.Name), "pickaxe") or string.match(string.lower(currentTool.Name), "board") then
-                -- Unequip it because it's a pickaxe or board
-                vim:SendKeyEvent(true, keyCode, false, game)
-                task.wait(0.05)
-                vim:SendKeyEvent(false, keyCode, false, game)
-                task.wait(0.3)
-            else
-                -- It's a valid non-pickaxe tool! Keep holding it.
-                return
-            end
-        end
-    end
+    local randomKeyStr = tostring(math.random(4, 6))
+    local keyCode = Enum.KeyCode["Number" .. randomKeyStr]
+    
+    vim:SendKeyEvent(true, keyCode, false, game)
+    task.wait(0.05)
+    vim:SendKeyEvent(false, keyCode, false, game)
+    task.wait(0.3)
 end
 
 -- ═══════════════════════════════════════════════
@@ -1678,6 +1651,8 @@ local function mainLoop()
                             humanizedWalkToPos(targetPos)
                         else
                             Stats.phase = isHiding and "🙈 Hiding at AFK Spot..." or "🏖️ Idling at AFK Spot..."
+                            unequipPick()
+                            task.wait(0.3)
                             equipRandomIdleItem()
                         end
                     end
@@ -1717,6 +1692,16 @@ local function mainLoop()
         -- Handle minigame + check occupied
         local timeout = 0
         while _G.AutoFarmEnabled_v3 and Cfg.AutoMine and timeout < 60 do
+            -- Check friend evasion mid-mining
+            local friendCount = 0
+            for _, _ in pairs(_friendsInServer) do friendCount = friendCount + 1 end
+            if Cfg.HideFromFriends and friendCount > 0 then
+                Stats.phase = "🙈 Friend joined! Hiding..."
+                resetMinigameState()
+                equipBoard()
+                break
+            end
+
             -- Check fully occupied during mining
             if _skipCurrentStone then
                 Stats.phase = "Occupied! Leaving..."
@@ -1853,12 +1838,12 @@ end)
 
 -- ═══ Background ═══
 task.spawn(function()
-    while _G.AutoFarmEnabled_v3 do
+    while _G.AutoFarmEnabled_v3 and _G.AutoFarmRunID == myRunID do
         updateStatus()
         pcall(updateESP)
         task.wait(2)
     end
-    clearESP()
+    if _G.AutoFarmRunID == myRunID then clearESP() end
 end)
 
 task.spawn(mainLoop)
