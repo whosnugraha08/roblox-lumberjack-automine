@@ -860,7 +860,7 @@ local function startTimingWatcher()
         -- Tolerance is 15% of the yellow bar's width from the exact center
         local tolerance = bar.AbsoluteSize.X * 0.15
         
-        if not _G.TestedCurrentStone then return end
+        if Cfg.AutoReroll and not _G.TestedCurrentStone then return end
 
         if math.abs(pointCenter - barCenter) <= tolerance then
             if not _G.WaitingForPointToLeave then
