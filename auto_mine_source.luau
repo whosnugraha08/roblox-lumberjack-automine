@@ -37,6 +37,7 @@ local RarityNames = { "Common", "Uncommon", "Rare", "Epic", "Legend", "Mythic", 
 local Cfg = {
     AutoMine = true,
     FullAuto = false,
+    TeleportMode = false,
     MineDelay = 0.8,
     LoopDelay = 1.0,
     StoneESP = false,
@@ -1016,7 +1017,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Indo Voice Auto Farm",
     Icon = "pickaxe",
     LoadingTitle = "Indo Voice Hub",
-    LoadingSubtitle = "v4.8.5",
+    LoadingSubtitle = "v4.8.6",
     Theme = "Default",
     ToggleUIKeybind = "K",
     DisableRayfieldPrompts = false,
@@ -1054,6 +1055,15 @@ local FAToggle = MT:CreateToggle({
         Cfg.FullAuto = v
         if v then Cfg.AutoMine = true; AMToggle:Set(true) end
         Stats.phase = v and "Full Auto..." or "Idle"
+    end,
+})
+
+MT:CreateToggle({
+    Name = "Instant Teleport Mode ⚡ (OP)",
+    CurrentValue = false,
+    Flag = "TP",
+    Callback = function(v)
+        Cfg.TeleportMode = v
     end,
 })
 
@@ -1391,8 +1401,8 @@ ST:CreateButton({
 ST:CreateDivider()
 ST:CreateSection("Info")
 ST:CreateParagraph({
-    Title = "v4.8.5",
-    Content = "• Strict VIP AFK Mode (Hotspot + Buddy Only)\n• Perbaikan 100% bug stuck AFK Spot dari executor\n• Humanized Idling 100% Works (Klik item sekali dan tidak ganti-ganti terus)\n• Hide From Friends Feature super cepat (Mid-mining kabur)\n• ESP Flicker diperbaiki\n\nPress K to toggle UI."
+    Title = "v4.8.6",
+    Content = "• NEW: Instant Teleport Mode ⚡ (OP fitur untuk private server)\n• Strict VIP AFK Mode (Hotspot + Buddy Only)\n• Perbaikan 100% bug stuck AFK Spot dari executor\n• Humanized Idling 100% Works\n• Hide From Friends Feature super cepat (Mid-mining kabur)\n\nPress K to toggle UI."
 })
 
 -- ═══════════════════════════════════════════════
@@ -1634,7 +1644,15 @@ local function mainLoop()
                         Stats.phase = "🛹 → " .. best.Name .. hs .. (pn > 0 and (" 👥" .. pn) or "")
 
                         local hrp = getHRP()
-                        if hrp then humanizedWalkTo(best) end
+                        if hrp then
+                            if Cfg.TeleportMode then
+                                Stats.phase = "⚡ Teleporting to " .. best.Name .. hs
+                                hrp.CFrame = CFrame.new(best:GetBoundingBox().Position + Vector3.new(0, 5, 0))
+                                task.wait(0.2)
+                            else
+                                humanizedWalkTo(best)
+                            end
+                        end
 
                         if not isNearStone() then
                             Stats.phase = "Retrying..."
@@ -1661,7 +1679,12 @@ local function mainLoop()
                             local targetPos = Cfg.AFKSpotCenter + Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
                             
                             Stats.phase = isHiding and "🙈 Running to AFK Spot..." or "🏖️ Running to AFK Spot..."
-                            humanizedWalkToPos(targetPos)
+                            if Cfg.TeleportMode then
+                                getHRP().CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+                                task.wait(0.2)
+                            else
+                                humanizedWalkToPos(targetPos)
+                            end
                         else
                             Stats.phase = isHiding and "🙈 Hiding at AFK Spot..." or "🏖️ Idling at AFK Spot..."
                             equipRandomIdleItem()
@@ -1862,7 +1885,7 @@ end)
 task.spawn(mainLoop)
 
 Rayfield:Notify({
-    Title = "Indo Voice Hub v4.8.5",
+    Title = "Indo Voice Hub v4.8.6",
     Content = "Strict AFK Mode + Friend Hiding siap digunakan!\nSet AFK Spot kamu sekarang.",
     Duration = 5,
     Image = "check-circle",
